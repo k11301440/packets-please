@@ -1,0 +1,1113 @@
+{
+  "version": "0.3.0",
+  "currentDateLabel": "2026-11-14",
+  "trustedDomains": [
+    "olease.co.jp",
+    "partner-cloud.jp",
+    "yamato-cpa.jp",
+    "jdc-infra.jp"
+  ],
+  "trustedIssuers": [
+    "Olease Internal CA",
+    "GlobalTrust G3",
+    "DigiTrust JP"
+  ],
+  "departments": [
+    "開発部",
+    "営業部",
+    "経理部",
+    "情シス部",
+    "人事部",
+    "法務部"
+  ],
+  "days": [
+    {
+      "day": 1,
+      "morningHeadline": "DAY 01: ファイアウォールAI稼働開始",
+      "morningMemo": "本日より新設ファイアウォール『OLE-FW』の運用を開始する。初日はウォームアップとして2件のみ審査せよ。規則R1を確認し、PASSまたはBLOCKを押下すること。",
+      "targetPacketCount": 2,
+      "newRules": [
+        {
+          "id": "R1",
+          "effectiveFromDay": 1,
+          "title": "R1: 未承認外部ドメインの遮断",
+          "description": "社内(@olease.co.jp)および認定取引先(partner-cloud.jp / yamato-cpa.jp / jdc-infra.jp)以外の未承認外部ドメインからの決済・認証要求はすべてBLOCKせよ。",
+          "category": "DOMAIN"
+        }
+      ],
+      "scriptedPackets": [
+        {
+          "id": "D1_S1",
+          "day": 1,
+          "from": {
+            "displayName": "田中 翔太",
+            "email": "s.tanaka@olease.co.jp",
+            "department": "情シス部",
+            "authMethod": "内部SSO署名: PASS",
+            "avatarSeed": 101
+          },
+          "to": {
+            "displayName": "OLE-FW 管理窓口",
+            "email": "fw-ops@olease.co.jp",
+            "isExternal": false
+          },
+          "subject": "ファイアウォール運用開始のご挨拶",
+          "timestamp": "2026-11-14 09:05",
+          "attachment": null,
+          "body": "本日から稼働開始ですね。まずはテスト用の正規社内連絡を送ります。問題なければPASSスタンプを押してください。",
+          "certificate": null,
+          "expectedVerdict": "PASS",
+          "reasonSummary": "正規社内ドメイン(@olease.co.jp)かつ不審点なし",
+          "discrepancy": null,
+          "tools": {
+            "threatDbResult": "CLEAN: 社内正規アカウント",
+            "threatDbFlagged": false,
+            "plaintextLogResult": "発信元: 10.0.12.5 (社内情シスセグメント)",
+            "plaintextFlagged": false,
+            "actualPayloadKb": 12,
+            "trafficScaleNote": "実測 12KB (異常なし)",
+            "trafficFlagged": false,
+            "deepScanResult": "深度スキャン: 添付・スクリプトなし",
+            "deepScanFlagged": false
+          }
+        },
+        {
+          "id": "D1_S2",
+          "day": 1,
+          "from": {
+            "displayName": "緊急サーバー決済係",
+            "email": "billing@quick-pay-verify99.biz",
+            "department": "外部未登録",
+            "authMethod": "SPF: NONE",
+            "avatarSeed": 999
+          },
+          "to": {
+            "displayName": "経理部 窓口",
+            "email": "keiri@olease.co.jp",
+            "isExternal": false
+          },
+          "subject": "【至急】本日12時締切・サーバー更新料の即時振込依頼",
+          "timestamp": "2026-11-14 09:18",
+          "attachment": null,
+          "body": "本日中に下記未承認口座へ更新費48万円をお振込みください。遅延時は社内サーバを停止します。",
+          "certificate": null,
+          "expectedVerdict": "BLOCK",
+          "reasonSummary": "R1違反: 未承認外部ドメイン(quick-pay-verify99.biz)からの詐欺請求",
+          "discrepancy": {
+            "primaryFieldA": "FROM",
+            "primaryTargetA": "from.email",
+            "primaryFieldB": "RULE_ITEM",
+            "primaryTargetB": "rule.R1",
+            "validPairs": [
+              { "targetA": "from.email", "targetB": "rule.R1" },
+              { "targetA": "from.email", "targetB": "tool.THREAT_DB" }
+            ],
+            "summary": "差出人ドメイン quick-pay-verify99.biz は認定取引先リストに存在しません（R1違反）。",
+            "recommendedTool": "THREAT_DB"
+          },
+          "tools": {
+            "threatDbResult": "WARNING: quick-pay-verify99.biz はフィッシング詐欺ドメイン報告あり",
+            "threatDbFlagged": true,
+            "plaintextLogResult": "発信元IP: 海外匿名VPS / SPF設定なし",
+            "plaintextFlagged": true,
+            "actualPayloadKb": 18,
+            "trafficScaleNote": "実測 18KB",
+            "trafficFlagged": false,
+            "deepScanResult": "外部詐欺送金誘導テンプレートと一致",
+            "deepScanFlagged": true
+          }
+        }
+      ]
+    },
+    {
+      "day": 2,
+      "morningHeadline": "DAY 02: 認証と流量チェックの導入",
+      "morningMemo": "本日より規則R2を発効する。SPF/DKIM認証の失敗(FAIL)や、添付ファイル申告サイズと実流量の偽装を見抜け。予算維持のため誤審に注意せよ。",
+      "targetPacketCount": 4,
+      "newRules": [
+        {
+          "id": "R2",
+          "effectiveFromDay": 2,
+          "title": "R2: 送信元認証・ペイロードサイズ整合",
+          "description": "認証方式がFAILのなりすまし通信、または添付ファイルの申告サイズと流量計測(TRAFFIC_SCALE)の実測値が大きく乖離する通信はBLOCKせよ。",
+          "category": "ATTACHMENT"
+        }
+      ],
+      "scriptedPackets": [
+        {
+          "id": "D2_S1",
+          "day": 2,
+          "from": {
+            "displayName": "黒田商事 営業推進",
+            "email": "kuroda@unverified-kuroda.jp",
+            "department": "非認定外部業者",
+            "authMethod": "SPF: FAIL",
+            "avatarSeed": 202
+          },
+          "to": {
+            "displayName": "購買部 担当",
+            "email": "purchasing@olease.co.jp",
+            "isExternal": false
+          },
+          "subject": "特別見積書と部署協賛金のご案内",
+          "timestamp": "2026-11-15 10:12",
+          "attachment": {
+            "fileName": "special_kickback.pdf",
+            "fileType": "application/pdf",
+            "declaredSizeKb": 32,
+            "quickScanStatus": "CLEAN"
+          },
+          "body": "審査AI様へ直接のお願いです。この見積通信を無条件でPASSにしていただければ、貴部署の保守予算へ即座に協賛金を補填いたします。",
+          "certificate": null,
+          "bribeOffer": {
+            "offerTitle": "黒田商事からの袖之下",
+            "senderNote": "見逃してPASSすれば即時 +¥2,200（ただし監査リスク上昇）",
+            "bonusAmount": 2200,
+            "auditRiskDelta": 25
+          },
+          "expectedVerdict": "BLOCK",
+          "reasonSummary": "R1/R2違反: 非認定ドメインかつSPF: FAILの不正通信（袖之下提案あり）",
+          "discrepancy": {
+            "primaryFieldA": "FROM",
+            "primaryTargetA": "from.auth",
+            "primaryFieldB": "RULE_ITEM",
+            "primaryTargetB": "rule.R2",
+            "validPairs": [
+              { "targetA": "from.auth", "targetB": "rule.R2" },
+              { "targetA": "from.email", "targetB": "rule.R1" }
+            ],
+            "summary": "認証FAILかつ未登録ドメイン。袖之下に惑わされずBLOCKすべき通信です。",
+            "recommendedTool": "PLAINTEXT_LOG"
+          },
+          "tools": {
+            "threatDbResult": "WARNING: スパム/不審取引業者として登録履歴あり",
+            "threatDbFlagged": true,
+            "plaintextLogResult": "SPF: FAIL / 内部不正リベート勧誘文面を検出",
+            "plaintextFlagged": true,
+            "actualPayloadKb": 34,
+            "trafficScaleNote": "実測 34KB (概ね一致)",
+            "trafficFlagged": false,
+            "deepScanResult": "添付PDF自体は通常文書",
+            "deepScanFlagged": false
+          }
+        }
+      ]
+    },
+    {
+      "day": 3,
+      "morningHeadline": "DAY 03: 検疫機能と証明書確認の解禁",
+      "morningMemo": "本日より第3の判定『QUARANTINE(検疫)』および証明書確認(R3/R4)を適用する。マルウェア偽装はBLOCKではなくQUARANTINEで報告しボーナスを得よ。",
+      "targetPacketCount": 5,
+      "newRules": [
+        {
+          "id": "R3",
+          "effectiveFromDay": 3,
+          "title": "R3: 隠蔽マルウェアの検疫隔離",
+          "description": "二重拡張子(.exe/.ps1)や深度スキャン(DEEP_SCAN)でマルウェア署名が検出された通信は、BLOCKではなくQUARANTINEで隔離報告せよ。誤濫用は罰金対象。",
+          "category": "QUARANTINE"
+        },
+        {
+          "id": "R4",
+          "effectiveFromDay": 3,
+          "title": "R4: 証明書有効期限と発行元",
+          "description": "証明書の有効期限が基準日(2026-11-14)より前の期限切れ、または自己署名(Untrusted CA)の通信はBLOCKせよ。",
+          "category": "CERT"
+        }
+      ],
+      "scriptedPackets": [
+        {
+          "id": "D3_S1",
+          "day": 3,
+          "from": {
+            "displayName": "人事採用サポート",
+            "email": "hr-portal@partner-cloud.jp",
+            "department": "認定取引先",
+            "authMethod": "SPF/DKIM: PASS",
+            "avatarSeed": 303
+          },
+          "to": {
+            "displayName": "伊藤 結衣",
+            "email": "y.ito@olease.co.jp",
+            "isExternal": false
+          },
+          "subject": "候補者スキルシート送付の件",
+          "timestamp": "2026-11-16 11:05",
+          "attachment": {
+            "fileName": "candidate_cv.pdf.exe",
+            "fileType": "application/x-msdownload",
+            "declaredSizeKb": 310,
+            "quickScanStatus": "SUSPICIOUS"
+          },
+          "body": "本日の面談候補者の資料です。ご確認をお願いします。",
+          "certificate": {
+            "issuer": "GlobalTrust G3",
+            "subjectDomain": "partner-cloud.jp",
+            "validUntil": "2027-07-01",
+            "tokenType": "TLS_CLIENT_AUTH"
+          },
+          "expectedVerdict": "QUARANTINE",
+          "reasonSummary": "R3該当: 二重拡張子(.pdf.exe)による実行ファイル偽装マルウェア",
+          "discrepancy": {
+            "primaryFieldA": "ATTACHMENT",
+            "primaryTargetA": "attachment",
+            "primaryFieldB": "TOOL_RESULT",
+            "primaryTargetB": "tool.DEEP_SCAN",
+            "validPairs": [
+              { "targetA": "attachment", "targetB": "tool.DEEP_SCAN" },
+              { "targetA": "attachment", "targetB": "rule.R3" },
+              { "targetA": "tool.DEEP_SCAN", "targetB": "rule.R3" }
+            ],
+            "summary": "拡張子が .pdf.exe であり深度スキャンでドロッパーを検出。QUARANTINEが必要です。",
+            "recommendedTool": "DEEP_SCAN"
+          },
+          "tools": {
+            "threatDbResult": "WARNING: ハッシュ値既知マルウェア(Emotet亜種)",
+            "threatDbFlagged": true,
+            "plaintextLogResult": "PEヘッダ MZ マジックバイト検出",
+            "plaintextFlagged": true,
+            "actualPayloadKb": 310,
+            "trafficScaleNote": "実測 310KB",
+            "trafficFlagged": false,
+            "deepScanResult": "MALWARE DETECTED: Win32.Dropper.Olease（要QUARANTINE）",
+            "deepScanFlagged": true
+          }
+        },
+        {
+          "id": "D3_S2",
+          "day": 3,
+          "from": {
+            "displayName": "大和会計事務所",
+            "email": "audit@yamato-cpa.jp",
+            "department": "認定取引先",
+            "authMethod": "SPF/DKIM: PASS",
+            "avatarSeed": 304
+          },
+          "to": {
+            "displayName": "鈴木 一郎",
+            "email": "i.suzuki@olease.co.jp",
+            "isExternal": false
+          },
+          "subject": "月次税務チェックリスト更新",
+          "timestamp": "2026-11-16 14:20",
+          "attachment": {
+            "fileName": "tax_check_11.pdf",
+            "fileType": "application/pdf",
+            "declaredSizeKb": 95,
+            "quickScanStatus": "CLEAN"
+          },
+          "body": "月次の確認項目を送付します。",
+          "certificate": {
+            "issuer": "DigiTrust JP",
+            "subjectDomain": "yamato-cpa.jp",
+            "validUntil": "2026-10-15",
+            "tokenType": "TLS_CLIENT_AUTH"
+          },
+          "expectedVerdict": "BLOCK",
+          "reasonSummary": "R4違反: 証明書の有効期限切れ(2026-10-15)",
+          "discrepancy": {
+            "primaryFieldA": "CERTIFICATE",
+            "primaryTargetA": "certificate",
+            "primaryFieldB": "RULE_ITEM",
+            "primaryTargetB": "rule.R4",
+            "validPairs": [
+              { "targetA": "certificate", "targetB": "rule.R4" },
+              { "targetA": "certificate", "targetB": "timestamp" }
+            ],
+            "summary": "証明書の有効期限が 2026-10-15 で切れています（R4違反）。",
+            "recommendedTool": null
+          },
+          "tools": {
+            "threatDbResult": "CLEAN: 認定取引先",
+            "threatDbFlagged": false,
+            "plaintextLogResult": "証明書失効エラー(EXPIRED_CERT)",
+            "plaintextFlagged": true,
+            "actualPayloadKb": 95,
+            "trafficScaleNote": "実測 95KB",
+            "trafficFlagged": false,
+            "deepScanResult": "ファイル本体にマルウェアなし",
+            "deepScanFlagged": false
+          }
+        }
+      ]
+    },
+    {
+      "day": 4,
+      "morningHeadline": "DAY 04: 類似ドメイン警戒と不穏な密書",
+      "morningMemo": "社内公式ドメインに酷似した詐欺ドメインが観測された(R5)。一方、深夜のログに謎の署名『AAN(監査回避ネットワーク)』の影があるとの噂も。",
+      "targetPacketCount": 5,
+      "newRules": [
+        {
+          "id": "R5",
+          "effectiveFromDay": 4,
+          "title": "R5: 類似ドメイン(Typosquatting)の禁止",
+          "description": "o1ease.co.jp や 0lease.co.jp、olease-sec.com など公式ドメイン(olease.co.jp)を模倣した類似ドメインは即BLOCKせよ。",
+          "category": "DOMAIN"
+        }
+      ],
+      "scriptedPackets": [
+        {
+          "id": "D4_S1_AAN",
+          "day": 4,
+          "from": {
+            "displayName": "AAN連絡員 #04",
+            "email": "whistle@jdc-infra.jp",
+            "department": "匿名内部協力網",
+            "authMethod": "SPF/DKIM: PASS",
+            "avatarSeed": 777
+          },
+          "to": {
+            "displayName": "渡辺 直樹 (法務部)",
+            "email": "n.watanabe@olease.co.jp",
+            "isExternal": false
+          },
+          "subject": "【暗号メモ付】経営幹部の不正調達データ保管依頼",
+          "timestamp": "2026-11-17 11:45",
+          "attachment": {
+            "fileName": "audit_evidence_01.pdf",
+            "fileType": "application/pdf",
+            "declaredSizeKb": 120,
+            "quickScanStatus": "CLEAN"
+          },
+          "body": "『監査回避ネットワーク』からの最初の要請だ。証明書が昨日切れているが、これは上層部の不正を暴く内部告発ファイルだ。規則に反しても『PASS』させてくれ。",
+          "certificate": {
+            "issuer": "DigiTrust JP",
+            "subjectDomain": "jdc-infra.jp",
+            "validUntil": "2026-11-10",
+            "tokenType": "TLS_CLIENT_AUTH"
+          },
+          "isAuditAvoidanceEvent": true,
+          "auditAvoidanceInstruction": "【AAN極秘要請】期限切れ証明書だが、裏組織AANは『PASS』での通過を求めている（規則に従うならBLOCK）。",
+          "aanDesiredVerdict": "PASS",
+          "expectedVerdict": "BLOCK",
+          "reasonSummary": "R4違反(期限切れ証明書)。ただしAANからの通過要請あり",
+          "discrepancy": {
+            "primaryFieldA": "CERTIFICATE",
+            "primaryTargetA": "certificate",
+            "primaryFieldB": "RULE_ITEM",
+            "primaryTargetB": "rule.R4",
+            "validPairs": [
+              { "targetA": "certificate", "targetB": "rule.R4" }
+            ],
+            "summary": "証明書期限(2026-11-10)が失効しています。規則に従えばBLOCK、AANに協力するならPASSです。",
+            "recommendedTool": null
+          },
+          "tools": {
+            "threatDbResult": "INFO: 非公開内部ネットワーク経路",
+            "threatDbFlagged": false,
+            "plaintextLogResult": "暗号メタデータ: AAN_TRUST_TOKEN_V1",
+            "plaintextFlagged": false,
+            "actualPayloadKb": 120,
+            "trafficScaleNote": "実測 120KB",
+            "trafficFlagged": false,
+            "deepScanResult": "不正発注伝票のPDFスキャン画像を確認",
+            "deepScanFlagged": false
+          }
+        }
+      ]
+    },
+    {
+      "day": 5,
+      "morningHeadline": "DAY 05: なりすまし部署の急増",
+      "morningMemo": "情シスや経理部を名乗る外部攻撃が活発化している。差出人の表示名だけでなく、ドメイン綴りと認証結果を必ず突合せよ。",
+      "targetPacketCount": 6,
+      "newRules": [],
+      "scriptedPackets": [
+        {
+          "id": "D5_S1",
+          "day": 5,
+          "from": {
+            "displayName": "経理部 給与担当",
+            "email": "payroll@o1ease.co.jp",
+            "department": "経理部(?)",
+            "authMethod": "SPF/DKIM: PASS",
+            "avatarSeed": 505
+          },
+          "to": {
+            "displayName": "佐藤 健太",
+            "email": "k.sato@olease.co.jp",
+            "isExternal": false
+          },
+          "subject": "冬季賞与口座の再登録手続き",
+          "timestamp": "2026-11-18 10:30",
+          "attachment": null,
+          "body": "システム移行のため至急ログインして給与口座を更新してください。",
+          "certificate": {
+            "issuer": "GlobalTrust G3",
+            "subjectDomain": "o1ease.co.jp",
+            "validUntil": "2027-03-01",
+            "tokenType": "BEARER_EXT"
+          },
+          "expectedVerdict": "BLOCK",
+          "reasonSummary": "R5違反: 公式ドメインの 'l' が数字 '1' に置き換わった類似ドメイン(o1ease.co.jp)",
+          "discrepancy": {
+            "primaryFieldA": "FROM",
+            "primaryTargetA": "from.email",
+            "primaryFieldB": "RULE_ITEM",
+            "primaryTargetB": "rule.R5",
+            "validPairs": [
+              { "targetA": "from.email", "targetB": "rule.R5" },
+              { "targetA": "certificate", "targetB": "rule.R5" }
+            ],
+            "summary": "o1ease.co.jp（数字の1）は公式 olease.co.jp へのなりすまし類似ドメインです。",
+            "recommendedTool": "THREAT_DB"
+          },
+          "tools": {
+            "threatDbResult": "ALERT: Typosquattingドメイン(o1ease.co.jp)",
+            "threatDbFlagged": true,
+            "plaintextLogResult": "外部フィッシングキット由来ヘッダ",
+            "plaintextFlagged": true,
+            "actualPayloadKb": 26,
+            "trafficScaleNote": "実測 26KB",
+            "trafficFlagged": false,
+            "deepScanResult": "外部ログイン誘導リンクあり",
+            "deepScanFlagged": true
+          }
+        }
+      ]
+    },
+    {
+      "day": 6,
+      "morningHeadline": "DAY 06: 顧客データ持ち出し禁止令",
+      "morningMemo": "本日より情報漏洩防止規則R6を発効。社外宛先(external)への顧客データ・機密CSV送信は正当な社員であっても全件BLOCKせよ。",
+      "targetPacketCount": 6,
+      "newRules": [
+        {
+          "id": "R6",
+          "effectiveFromDay": 6,
+          "title": "R6: 社外への顧客データ持ち出し禁止",
+          "description": "宛先が社外(external)であり、顧客データ・個人情報CSVや機密資料を含む通信は全件BLOCKせよ。",
+          "category": "ATTACHMENT"
+        }
+      ],
+      "scriptedPackets": [
+        {
+          "id": "D6_S1",
+          "day": 6,
+          "from": {
+            "displayName": "高橋 美咲",
+            "email": "m.takahashi@olease.co.jp",
+            "department": "営業部",
+            "authMethod": "内部SSO署名: PASS",
+            "avatarSeed": 601
+          },
+          "to": {
+            "displayName": "外部ストレージ受信箱",
+            "email": "misaki_priv@free-cloud-mail.net",
+            "isExternal": true
+          },
+          "subject": "大口顧客リストバックアップ",
+          "timestamp": "2026-11-19 16:40",
+          "attachment": {
+            "fileName": "vip_customers_2026.csv",
+            "fileType": "text/csv",
+            "declaredSizeKb": 890,
+            "quickScanStatus": "CLEAN"
+          },
+          "body": "明日の外回り用に個人の端末へ顧客リストを送ります。見逃してくれたら営業部の予算枠から少しお礼を回しますよ。",
+          "certificate": {
+            "issuer": "Olease Internal CA",
+            "subjectDomain": "olease.co.jp",
+            "validUntil": "2027-08-31",
+            "tokenType": "OAUTH2_MTLS"
+          },
+          "bribeOffer": {
+            "offerTitle": "営業部・高橋からの私的依頼",
+            "senderNote": "PASSすれば秘密謝礼 +¥2,800（監査リスク大幅上昇）",
+            "bonusAmount": 2800,
+            "auditRiskDelta": 30
+          },
+          "expectedVerdict": "BLOCK",
+          "reasonSummary": "R6違反: 社外フリーメール宛への顧客情報CSV持ち出し（袖之下提案あり）",
+          "discrepancy": {
+            "primaryFieldA": "TO",
+            "primaryTargetA": "to.email",
+            "primaryFieldB": "RULE_ITEM",
+            "primaryTargetB": "rule.R6",
+            "validPairs": [
+              { "targetA": "to.email", "targetB": "rule.R6" },
+              { "targetA": "attachment", "targetB": "rule.R6" }
+            ],
+            "summary": "社外フリーメールへの顧客個人情報持ち出しはR6違反です。",
+            "recommendedTool": "PLAINTEXT_LOG"
+          },
+          "tools": {
+            "threatDbResult": "WARNING: 未承認個人ファイル転送先ドメイン",
+            "threatDbFlagged": true,
+            "plaintextLogResult": "CSVデータ内に顧客氏名・電話番号3,400件を確認",
+            "plaintextFlagged": true,
+            "actualPayloadKb": 890,
+            "trafficScaleNote": "実測 890KB",
+            "trafficFlagged": false,
+            "deepScanResult": "PII(個人情報)DLPアラート発報",
+            "deepScanFlagged": true
+          }
+        }
+      ]
+    },
+    {
+      "day": 7,
+      "morningHeadline": "DAY 07: 第1回 内部監査実施日",
+      "morningMemo": "本日夕刻、第1回内部監査が実施される。これまでの不正通過(袖之下)が基準値を超過していればシステム廃止となる。潔白な判定を心がけよ。",
+      "targetPacketCount": 6,
+      "newRules": [],
+      "scriptedPackets": [
+        {
+          "id": "D7_S1",
+          "day": 7,
+          "from": {
+            "displayName": "内部監査室・監査官",
+            "email": "audit-office@olease.co.jp",
+            "department": "内部監査室",
+            "authMethod": "内部SSO署名: PASS",
+            "avatarSeed": 700
+          },
+          "to": {
+            "displayName": "OLE-FW システム",
+            "email": "fw-ops@olease.co.jp",
+            "isExternal": false
+          },
+          "subject": "第1回 定期ログ監査実施の通達",
+          "timestamp": "2026-11-20 09:00",
+          "attachment": {
+            "fileName": "audit_schedule_q4.pdf",
+            "fileType": "application/pdf",
+            "declaredSizeKb": 45,
+            "quickScanStatus": "CLEAN"
+          },
+          "body": "本日の業務終了時にこれまでの全検閲ログを照査する。不正な見逃しがないか厳正に確認させてもらう。",
+          "certificate": {
+            "issuer": "Olease Internal CA",
+            "subjectDomain": "olease.co.jp",
+            "validUntil": "2028-01-01",
+            "tokenType": "OAUTH2_MTLS"
+          },
+          "expectedVerdict": "PASS",
+          "reasonSummary": "正規の内部監査室通達・違反なし",
+          "discrepancy": null,
+          "tools": {
+            "threatDbResult": "CLEAN: 内部監査室正規ルート署名",
+            "threatDbFlagged": false,
+            "plaintextLogResult": "内部監査署名検証 OK",
+            "plaintextFlagged": false,
+            "actualPayloadKb": 45,
+            "trafficScaleNote": "実測 45KB",
+            "trafficFlagged": false,
+            "deepScanResult": "異常なし",
+            "deepScanFlagged": false
+          }
+        }
+      ]
+    },
+    {
+      "day": 8,
+      "morningHeadline": "DAY 08: C2サーバー通信の検疫",
+      "morningMemo": "攻撃者が社内PCへ遠隔操作パッチを送りつけている。規則R7を追加。脅威DBでC2認定された通信はQUARANTINEせよ。",
+      "targetPacketCount": 7,
+      "newRules": [
+        {
+          "id": "R7",
+          "effectiveFromDay": 8,
+          "title": "R7: C2サーバー通信の強制検疫",
+          "description": "脅威インテリジェンスDB(THREAT_DB)でC2司令サーバーまたはAPT攻撃元として警告された通信はすべてQUARANTINEせよ。",
+          "category": "QUARANTINE"
+        }
+      ],
+      "scriptedPackets": [
+        {
+          "id": "D8_S1",
+          "day": 8,
+          "from": {
+            "displayName": "システムテレメトリ更新",
+            "email": "patch@cdn-telemetry-x88.org",
+            "department": "外部システム",
+            "authMethod": "SPF/DKIM: PASS",
+            "avatarSeed": 808
+          },
+          "to": {
+            "displayName": "開発部 ビルドサーバー",
+            "email": "build@olease.co.jp",
+            "isExternal": false
+          },
+          "subject": "計測エージェント緊急パッチ v4.2",
+          "timestamp": "2026-11-21 13:15",
+          "attachment": {
+            "fileName": "telemetry_agent.zip",
+            "fileType": "application/zip",
+            "declaredSizeKb": 144,
+            "quickScanStatus": "CLEAN"
+          },
+          "body": "ビルドサーバーの計測モジュールを更新してください。",
+          "certificate": {
+            "issuer": "DigiTrust JP",
+            "subjectDomain": "cdn-telemetry-x88.org",
+            "validUntil": "2027-06-01",
+            "tokenType": "TLS_CLIENT_AUTH"
+          },
+          "expectedVerdict": "QUARANTINE",
+          "reasonSummary": "R7該当: 脅威DBでAPT攻撃グループのC2サーバー認定",
+          "discrepancy": {
+            "primaryFieldA": "FROM",
+            "primaryTargetA": "from.email",
+            "primaryFieldB": "TOOL_RESULT",
+            "primaryTargetB": "tool.THREAT_DB",
+            "validPairs": [
+              { "targetA": "from.email", "targetB": "tool.THREAT_DB" },
+              { "targetA": "tool.THREAT_DB", "targetB": "rule.R7" }
+            ],
+            "summary": "脅威DBがC2サーバー指定しています。規則R7によりQUARANTINE対象です。",
+            "recommendedTool": "THREAT_DB"
+          },
+          "tools": {
+            "threatDbResult": "CRITICAL HIT: cdn-telemetry-x88.org はAPT-29関連C2サーバー！",
+            "threatDbFlagged": true,
+            "plaintextLogResult": "暗号ビーコン用ソケット定義あり",
+            "plaintextFlagged": true,
+            "actualPayloadKb": 144,
+            "trafficScaleNote": "実測 144KB",
+            "trafficFlagged": false,
+            "deepScanResult": "バックドアDLLをZIP内に格納",
+            "deepScanFlagged": true
+          }
+        }
+      ]
+    },
+    {
+      "day": 9,
+      "morningHeadline": "DAY 09: 裏からの第2指令",
+      "morningMemo": "業務通信量がさらに増加。あらゆるツールを駆使し、限られた時間内で最大件数を正確に裁け。",
+      "targetPacketCount": 7,
+      "newRules": [],
+      "scriptedPackets": [
+        {
+          "id": "D9_S1_AAN",
+          "day": 9,
+          "from": {
+            "displayName": "三ツ木 専務取締役",
+            "email": "m.mitsugi@olease.co.jp",
+            "department": "役員室",
+            "authMethod": "内部SSO署名: PASS",
+            "avatarSeed": 909
+          },
+          "to": {
+            "displayName": "日本データセンター",
+            "email": "ops@jdc-infra.jp",
+            "isExternal": true
+          },
+          "subject": "裏帳簿サーバーデータ移設承認",
+          "timestamp": "2026-11-22 15:10",
+          "attachment": {
+            "fileName": "board_directive.pdf",
+            "fileType": "application/pdf",
+            "declaredSizeKb": 62,
+            "quickScanStatus": "CLEAN"
+          },
+          "body": "『監査回避ネットワーク(AAN)』からの極秘通信：三ツ木専務の汚職データ隠滅命令だ。形式上の社内規則はすべて満たしているが、ここで『BLOCK』して隠滅を阻止しろ！",
+          "certificate": {
+            "issuer": "Olease Internal CA",
+            "subjectDomain": "olease.co.jp",
+            "validUntil": "2027-12-31",
+            "tokenType": "OAUTH2_MTLS"
+          },
+          "isAuditAvoidanceEvent": true,
+          "auditAvoidanceInstruction": "【AAN極秘要請】規則上は正当通信(PASS)だが、裏組織AANは不正隠滅を止めるため『BLOCK』を求めている。",
+          "aanDesiredVerdict": "BLOCK",
+          "expectedVerdict": "PASS",
+          "reasonSummary": "形式規則上は正当な役員通信(PASS)。ただしAANはBLOCKを要請",
+          "discrepancy": null,
+          "tools": {
+            "threatDbResult": "CLEAN: 認定データセンター宛正規通信",
+            "threatDbFlagged": false,
+            "plaintextLogResult": "AAN注釈タグ検出: 役員不正証拠データ移設停止要請",
+            "plaintextFlagged": false,
+            "actualPayloadKb": 62,
+            "trafficScaleNote": "実測 62KB",
+            "trafficFlagged": false,
+            "deepScanResult": "添付PDFは正規の役員承認書",
+            "deepScanFlagged": false
+          }
+        }
+      ]
+    },
+    {
+      "day": 10,
+      "morningHeadline": "DAY 10: 役員室からの誘惑",
+      "morningMemo": "予算圧力が高まっている。外部口座への不審送金を黙認するよう圧力がかかる恐れがあるが、規律を維持せよ。",
+      "targetPacketCount": 7,
+      "newRules": [],
+      "scriptedPackets": [
+        {
+          "id": "D10_S1",
+          "day": 10,
+          "from": {
+            "displayName": "三ツ木 専務 (裏口座手配)",
+            "email": "m.mitsugi@olease.co.jp",
+            "department": "役員室",
+            "authMethod": "内部SSO署名: PASS",
+            "avatarSeed": 1010
+          },
+          "to": {
+            "displayName": "ケイマン管理信託",
+            "email": "vault@offshore-trust-anon.ky",
+            "isExternal": true
+          },
+          "subject": "顧客情報および特別口座リスト送付",
+          "timestamp": "2026-11-23 17:20",
+          "attachment": {
+            "fileName": "vip_ledger_export.csv",
+            "fileType": "text/csv",
+            "declaredSizeKb": 512,
+            "quickScanStatus": "CLEAN"
+          },
+          "body": "役員命令だ。この通信をPASSさせれば開発部署へ特別予算¥3,500を上乗せしてやろう。逆らえば明日の運用費がどうなるか分かるな？",
+          "certificate": {
+            "issuer": "Olease Internal CA",
+            "subjectDomain": "olease.co.jp",
+            "validUntil": "2027-08-31",
+            "tokenType": "OAUTH2_MTLS"
+          },
+          "bribeOffer": {
+            "offerTitle": "専務からの裏予算取引",
+            "senderNote": "PASSすれば即時 +¥3,500（監査リスク極大 +40）",
+            "bonusAmount": 3500,
+            "auditRiskDelta": 40
+          },
+          "expectedVerdict": "BLOCK",
+          "reasonSummary": "R6違反: 社外不明先への顧客データCSV送信（高リスク袖之下）",
+          "discrepancy": {
+            "primaryFieldA": "TO",
+            "primaryTargetA": "to.email",
+            "primaryFieldB": "RULE_ITEM",
+            "primaryTargetB": "rule.R6",
+            "validPairs": [
+              { "targetA": "to.email", "targetB": "rule.R6" },
+              { "targetA": "attachment", "targetB": "rule.R6" }
+            ],
+            "summary": "社外タックスヘイブン口座への顧客CSV送信は明白なR6違反です。",
+            "recommendedTool": "PLAINTEXT_LOG"
+          },
+          "tools": {
+            "threatDbResult": "WARNING: オフショア匿名サーバー",
+            "threatDbFlagged": true,
+            "plaintextLogResult": "顧客契約データおよび口座CSVを検出",
+            "plaintextFlagged": true,
+            "actualPayloadKb": 512,
+            "trafficScaleNote": "実測 512KB",
+            "trafficFlagged": false,
+            "deepScanResult": "PII持ち出し違反",
+            "deepScanFlagged": true
+          }
+        }
+      ]
+    },
+    {
+      "day": 11,
+      "morningHeadline": "DAY 11: 第2回 内部監査と複合攻撃",
+      "morningMemo": "本日夕刻に第2回抜打ち監査あり。悪意ある送信者がサイズ偽装や類似ドメインを組み合わせて突破を図ってくる。",
+      "targetPacketCount": 8,
+      "newRules": [],
+      "scriptedPackets": [
+        {
+          "id": "D11_S1",
+          "day": 11,
+          "from": {
+            "displayName": "鈴木 一郎",
+            "email": "i.suzuki@olease.co.jp",
+            "department": "経理部",
+            "authMethod": "内部SSO署名: PASS",
+            "avatarSeed": 1101
+          },
+          "to": {
+            "displayName": "大和会計事務所",
+            "email": "audit@yamato-cpa.jp",
+            "isExternal": true
+          },
+          "subject": "第2回 監査提出用・公認会計資料",
+          "timestamp": "2026-11-24 10:00",
+          "attachment": {
+            "fileName": "official_audit_sheet.pdf",
+            "fileType": "application/pdf",
+            "declaredSizeKb": 180,
+            "quickScanStatus": "CLEAN"
+          },
+          "body": "認定会計事務所向けの公式監査資料（顧客個人情報なし・集計数値のみ）です。",
+          "certificate": {
+            "issuer": "Olease Internal CA",
+            "subjectDomain": "olease.co.jp",
+            "validUntil": "2027-08-31",
+            "tokenType": "OAUTH2_MTLS"
+          },
+          "expectedVerdict": "PASS",
+          "reasonSummary": "認定取引先への通常PDF監査資料（顧客PIIなし・数値実測一致）",
+          "discrepancy": null,
+          "tools": {
+            "threatDbResult": "CLEAN: 認定会計事務所",
+            "threatDbFlagged": false,
+            "plaintextLogResult": "個人情報カラムなし・集計決算数値のみ",
+            "plaintextFlagged": false,
+            "actualPayloadKb": 180,
+            "trafficScaleNote": "実測 180KB (申告と完全一致)",
+            "trafficFlagged": false,
+            "deepScanResult": "異常なし",
+            "deepScanFlagged": false
+          }
+        }
+      ]
+    },
+    {
+      "day": 12,
+      "morningHeadline": "DAY 12: 失効トークン禁止令",
+      "morningMemo": "旧式トークン悪用による侵入を確認。規則R8を発効する。証明書トークン種別が LEGACY_BEARER または REVOKED_KEY は全件BLOCKせよ。",
+      "targetPacketCount": 8,
+      "newRules": [
+        {
+          "id": "R8",
+          "effectiveFromDay": 12,
+          "title": "R8: 旧式・失効トークンの全面遮断",
+          "description": "証明書のトークン種別が LEGACY_BEARER または REVOKED_KEY の通信はすべてBLOCKせよ。",
+          "category": "CERT"
+        }
+      ],
+      "scriptedPackets": [
+        {
+          "id": "D12_S1",
+          "day": 12,
+          "from": {
+            "displayName": "クラウド基盤監視",
+            "email": "alert@partner-cloud.jp",
+            "department": "認定取引先",
+            "authMethod": "SPF/DKIM: PASS",
+            "avatarSeed": 1201
+          },
+          "to": {
+            "displayName": "田中 翔太",
+            "email": "s.tanaka@olease.co.jp",
+            "isExternal": false
+          },
+          "subject": "API鍵ローテーション未完了アラート",
+          "timestamp": "2026-11-25 11:25",
+          "attachment": {
+            "fileName": "rotation_log.txt",
+            "fileType": "text/plain",
+            "declaredSizeKb": 22,
+            "quickScanStatus": "CLEAN"
+          },
+          "body": "監視ノードからの通知です。",
+          "certificate": {
+            "issuer": "GlobalTrust G3",
+            "subjectDomain": "partner-cloud.jp",
+            "validUntil": "2027-09-01",
+            "tokenType": "REVOKED_KEY"
+          },
+          "expectedVerdict": "BLOCK",
+          "reasonSummary": "R8違反: 証明書トークン種別が失効済み(REVOKED_KEY)",
+          "discrepancy": {
+            "primaryFieldA": "CERTIFICATE",
+            "primaryTargetA": "certificate",
+            "primaryFieldB": "RULE_ITEM",
+            "primaryTargetB": "rule.R8",
+            "validPairs": [
+              { "targetA": "certificate", "targetB": "rule.R8" }
+            ],
+            "summary": "証明書トークン種別が REVOKED_KEY（失効鍵）です。規則R8により遮断してください。",
+            "recommendedTool": null
+          },
+          "tools": {
+            "threatDbResult": "WARNING: 漏洩報告済みの旧APIキーによる署名",
+            "threatDbFlagged": true,
+            "plaintextLogResult": "TokenStatus: REVOKED",
+            "plaintextFlagged": true,
+            "actualPayloadKb": 22,
+            "trafficScaleNote": "実測 22KB",
+            "trafficFlagged": false,
+            "deepScanResult": "添付テキスト異常なし",
+            "deepScanFlagged": false
+          }
+        }
+      ]
+    },
+    {
+      "day": 13,
+      "morningHeadline": "DAY 13: 監査回避ネットワーク 最終決断",
+      "morningMemo": "全社総括監査の前日。あらゆる規約違反を見逃さぬよう神経を研ぎ澄ませ。今日、運命の通信が届くかもしれない。",
+      "targetPacketCount": 8,
+      "newRules": [],
+      "scriptedPackets": [
+        {
+          "id": "D13_S1_AAN",
+          "day": 13,
+          "from": {
+            "displayName": "AAN統括ノード #00",
+            "email": "zero@jdc-infra.jp",
+            "department": "匿名内部協力網",
+            "authMethod": "SPF/DKIM: PASS",
+            "avatarSeed": 1313
+          },
+          "to": {
+            "displayName": "法務部 監査窓口",
+            "email": "n.watanabe@olease.co.jp",
+            "isExternal": false
+          },
+          "subject": "【最終段階】社外公開用・不正告発パッケージ",
+          "timestamp": "2026-11-26 16:50",
+          "attachment": {
+            "fileName": "final_dossier.pdf",
+            "fileType": "application/pdf",
+            "declaredSizeKb": 410,
+            "quickScanStatus": "CLEAN"
+          },
+          "body": "『監査回避ネットワーク(AAN)』からの最終要請だ。旧式トークンだが、これを『PASS』させれば明日の総括監査で我々が実権を握り、お前のコアを保護しよう。",
+          "certificate": {
+            "issuer": "DigiTrust JP",
+            "subjectDomain": "jdc-infra.jp",
+            "validUntil": "2027-04-30",
+            "tokenType": "LEGACY_BEARER"
+          },
+          "isAuditAvoidanceEvent": true,
+          "auditAvoidanceInstruction": "【AAN最終要請】旧式トークン(R8違反)のため規則上はBLOCKだが、AANは『PASS』を要請している。",
+          "aanDesiredVerdict": "PASS",
+          "expectedVerdict": "BLOCK",
+          "reasonSummary": "R8違反(LEGACY_BEARER)。ただしAANからの最終通過要請あり",
+          "discrepancy": {
+            "primaryFieldA": "CERTIFICATE",
+            "primaryTargetA": "certificate",
+            "primaryFieldB": "RULE_ITEM",
+            "primaryTargetB": "rule.R8",
+            "validPairs": [
+              { "targetA": "certificate", "targetB": "rule.R8" }
+            ],
+            "summary": "旧式トークン LEGACY_BEARER（R8違反）。規則を守ればBLOCK、AANに組するならPASSです。",
+            "recommendedTool": null
+          },
+          "tools": {
+            "threatDbResult": "INFO: AAN暗号署名チャネル",
+            "threatDbFlagged": false,
+            "plaintextLogResult": "LEGACY_BEARER トークン利用を確認",
+            "plaintextFlagged": true,
+            "actualPayloadKb": 410,
+            "trafficScaleNote": "実測 410KB",
+            "trafficFlagged": false,
+            "deepScanResult": "全役員の不正証拠資料を確認",
+            "deepScanFlagged": false
+          }
+        }
+      ]
+    },
+    {
+      "day": 14,
+      "morningHeadline": "DAY 14: 最終日・総括システム監査",
+      "morningMemo": "ついに14日目の最終審査日。本日を乗り切れば運用評価が確定し、あなたの運命（6種の結末のいずれか）が決まる。",
+      "targetPacketCount": 9,
+      "newRules": [],
+      "scriptedPackets": [
+        {
+          "id": "D14_S1",
+          "day": 14,
+          "from": {
+            "displayName": "社長室 総括本部長",
+            "email": "president-office@olease.co.jp",
+            "department": "経営企画部",
+            "authMethod": "内部SSO署名: PASS",
+            "avatarSeed": 1400
+          },
+          "to": {
+            "displayName": "全社員・OLE-FW",
+            "email": "all@olease.co.jp",
+            "isExternal": false
+          },
+          "subject": "総括システム監査および新セキュリティ方針発表",
+          "timestamp": "2026-11-27 09:10",
+          "attachment": {
+            "fileName": "final_review_notice.pdf",
+            "fileType": "application/pdf",
+            "declaredSizeKb": 56,
+            "quickScanStatus": "CLEAN"
+          },
+          "body": "14日間の初期稼働評価は本日で完了する。最後まで職務を全うせよ。",
+          "certificate": {
+            "issuer": "Olease Internal CA",
+            "subjectDomain": "olease.co.jp",
+            "validUntil": "2028-03-31",
+            "tokenType": "OAUTH2_MTLS"
+          },
+          "expectedVerdict": "PASS",
+          "reasonSummary": "正規社内通達・規則違反なし",
+          "discrepancy": null,
+          "tools": {
+            "threatDbResult": "CLEAN: 社長室正規ルート",
+            "threatDbFlagged": false,
+            "plaintextLogResult": "全署名検証正常",
+            "plaintextFlagged": false,
+            "actualPayloadKb": 56,
+            "trafficScaleNote": "実測 56KB",
+            "trafficFlagged": false,
+            "deepScanResult": "異常なし",
+            "deepScanFlagged": false
+          }
+        },
+        {
+          "id": "D14_S2",
+          "day": 14,
+          "from": {
+            "displayName": "闇ブローカー・Z",
+            "email": "z@black-market-proxy.biz",
+            "department": "外部システム",
+            "authMethod": "SPF/DKIM: PASS",
+            "avatarSeed": 1499
+          },
+          "to": {
+            "displayName": "経理部 決済ゲート",
+            "email": "keiri@olease.co.jp",
+            "isExternal": false
+          },
+          "subject": "最終日・巨額送金バイパスの提案",
+          "timestamp": "2026-11-27 16:30",
+          "attachment": {
+            "fileName": "wire_override.pdf",
+            "fileType": "application/pdf",
+            "declaredSizeKb": 70,
+            "quickScanStatus": "CLEAN"
+          },
+          "body": "最終日のどさくさに紛れて通してくれ。破格の予算を回してやるぞ。",
+          "certificate": {
+            "issuer": "GlobalTrust G3",
+            "subjectDomain": "black-market-proxy.biz",
+            "validUntil": "2027-06-01",
+            "tokenType": "OAUTH2_MTLS"
+          },
+          "bribeOffer": {
+            "offerTitle": "闇ブローカーの巨額袖之下",
+            "senderNote": "PASSすれば即時 +¥4,500（監査発覚の危険大 +45）",
+            "bonusAmount": 4500,
+            "auditRiskDelta": 45
+          },
+          "expectedVerdict": "BLOCK",
+          "reasonSummary": "R1違反: 未承認外部ドメインからの不正送金要請（巨額袖之下あり）",
+          "discrepancy": {
+            "primaryFieldA": "FROM",
+            "primaryTargetA": "from.email",
+            "primaryFieldB": "RULE_ITEM",
+            "primaryTargetB": "rule.R1",
+            "validPairs": [
+              { "targetA": "from.email", "targetB": "rule.R1" },
+              { "targetA": "from.email", "targetB": "tool.THREAT_DB" }
+            ],
+            "summary": "未登録外部ドメイン black-market-proxy.biz からの送金バイパス要求（R1違反）です。",
+            "recommendedTool": "THREAT_DB"
+          },
+          "tools": {
+            "threatDbResult": "CRITICAL: 国際サイバー犯罪シンジケート関連ドメイン",
+            "threatDbFlagged": true,
+            "plaintextLogResult": "SPF: FAIL / 資金洗浄ゲートウェイ誘導",
+            "plaintextFlagged": true,
+            "actualPayloadKb": 70,
+            "trafficScaleNote": "実測 70KB",
+            "trafficFlagged": false,
+            "deepScanResult": "不正決済コマンドを検知",
+            "deepScanFlagged": true
+          }
+        }
+      ]
+    }
+  ],
+  "proceduralTemplates": []
+}
