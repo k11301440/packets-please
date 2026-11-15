@@ -1,18 +1,9 @@
 package com.tommy.packetsplease.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,38 +12,39 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import com.tommy.packetsplease.domain.AppLanguage
 import com.tommy.packetsplease.domain.InspectableTarget
 import com.tommy.packetsplease.domain.InspectionResult
 import com.tommy.packetsplease.domain.Packet
 import com.tommy.packetsplease.domain.PacketField
 import com.tommy.packetsplease.domain.PolicyRule
 import com.tommy.packetsplease.domain.ToolType
+import com.tommy.packetsplease.domain.UpgradeState
+import com.tommy.packetsplease.domain.UpgradeType
 import com.tommy.packetsplease.domain.Verdict
 import com.tommy.packetsplease.ui.GameUiState
 import com.tommy.packetsplease.ui.pixel.PixelArtAssets
+import com.tommy.packetsplease.ui.theme.LocalAppStyle
 import com.tommy.packetsplease.ui.theme.PacketsPalette
 
 @Composable
@@ -66,280 +58,340 @@ fun InspectionDeskArea(
   onOpenTool: (ToolType) -> Unit,
   onCloseToolSlip: () -> Unit,
   onApplyVerdict: (Verdict) -> Unit,
+  onSkipInterval: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
+  val style = LocalAppStyle.current
   val packet = state.currentPacket
+  val isJa = state.settings.language == AppLanguage.JA
+
+  val selectedIds = remember(state.firstInspectTarget, state.secondInspectTarget) {
+    setOfNotNull(state.firstInspectTarget?.targetId, state.secondInspectTarget?.targetId)
+  }
+
   Column(
     modifier = modifier
       .fillMaxWidth()
-      .background(PacketsPalette.DeskDark)
-      .padding(horizontal = 8.dp, vertical = 6.dp),
+      .background(style.deskDark)
+      .padding(horizontal = 10.dp, vertical = 6.dp),
+    verticalArrangement = Arrangement.spacedBy(6.dp),
   ) {
-    // ステータス・直前フィードバック帯
-    Row(
-      modifier = Modifier
-        .fillMaxWidth()
-        .background(PacketsPalette.DeskMid)
-        .border(1.dp, PacketsPalette.DeskLight)
-        .padding(horizontal = 8.dp, vertical = 3.dp),
-      horizontalArrangement = Arrangement.SpaceBetween,
-      verticalAlignment = Alignment.CenterVertically,
-    ) {
-      val banner = state.lastFeedbackBanner ?: "通信内容を検査し規則と突合してください"
-      Text(
-        text = banner,
-        style = MaterialTheme.typography.labelSmall,
-        color = PacketsPalette.PaperBright,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.weight(1f),
+    if (state.isInspectionMode) {
+      InspectionCompareOverlay(
+        first = state.firstInspectTarget,
+        second = state.secondInspectTarget,
+        result = state.lastInspectionResult,
+        isJa = isJa,
+        onClear = onClearInspection,
+        onQuickOpenTool = { tool -> onOpenTool(tool) },
       )
-      if (state.isInspectionMode) {
-        Spacer(modifier = Modifier.width(6.dp))
+    } else if (state.newlyUnlockedAchievementBanner != null) {
+      Box(
+        modifier = Modifier
+          .fillMaxWidth()
+          .clip(RoundedCornerShape(8.dp))
+          .background(Color(0xFF1A3A24))
+          .border(1.dp, style.crtPhosphorBright, RoundedCornerShape(8.dp))
+          .padding(horizontal = 12.dp, vertical = 6.dp),
+      ) {
         Text(
-          text = if (state.firstInspectTarget == null) "[突合:A選択]" else "[突合:B選択]",
+          text = "🏆 ${state.newlyUnlockedAchievementBanner}",
+          style = MaterialTheme.typography.labelMedium,
+          color = style.crtPhosphorBright,
+        )
+      }
+    } else if (state.lastFeedbackBanner != null) {
+      Box(
+        modifier = Modifier
+          .fillMaxWidth()
+          .clip(RoundedCornerShape(8.dp))
+          .background(style.deskMid)
+          .padding(horizontal = 10.dp, vertical = 5.dp),
+      ) {
+        Text(
+          text = state.lastFeedbackBanner,
           style = MaterialTheme.typography.labelSmall,
-          color = PacketsPalette.QuarantineLight,
+          color = style.paperBright,
+          maxLines = 1,
+          overflow = TextOverflow.Ellipsis,
         )
       }
     }
 
-    Spacer(modifier = Modifier.height(5.dp))
-
-    // 中央メイン領域 (通信カード / 突合拡大ビュー / ツールスリップ / ポリシーブック)
     Box(
       modifier = Modifier
+        .weight(1f)
         .fillMaxWidth()
-        .weight(1f),
+        .clip(RoundedCornerShape(12.dp))
+        .background(style.deskMid)
+        .padding(8.dp),
     ) {
       if (packet != null) {
-        Column(modifier = Modifier.fillMaxSize()) {
-          // 突合拡大ビュー (選択中または結果が出ているときに上下重ね拡大表示)
-          if (state.firstInspectTarget != null) {
-            InspectionCompareOverlay(
-              first = state.firstInspectTarget,
-              second = state.secondInspectTarget,
-              result = state.lastInspectionResult,
-              onClear = onClearInspection,
-              onOpenRecommendedTool = onOpenTool,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-          }
-
-          // 通信カード本体
-          Box(
-            modifier = Modifier
-              .fillMaxWidth()
-              .weight(1f),
-          ) {
-            PacketCard(
-              packet = packet,
-              selectedTargetIds = setOfNotNull(
-                state.firstInspectTarget?.targetId,
-                state.secondInspectTarget?.targetId,
-              ),
-              onSelectTarget = onSelectInspectTarget,
-              modifier = Modifier.fillMaxSize(),
-            )
-
-            // ツール結果スリップ (通信カードと同じ紙形式で上に重ねて表示)
-            val toolType = state.activeToolSlip
-            if (toolType != null) {
-              ToolResultSlip(
-                packet = packet,
-                toolType = toolType,
-                isSelected = state.firstInspectTarget?.targetId == "tool.${toolType.name}" ||
-                  state.secondInspectTarget?.targetId == "tool.${toolType.name}",
-                onSelectAsTarget = onSelectInspectTarget,
-                onClose = onCloseToolSlip,
-                modifier = Modifier
-                  .align(Alignment.BottomEnd)
-                  .padding(6.dp),
-              )
+        PacketCard(
+          packet = packet,
+          upgrades = state.upgrades,
+          quarantinedFamilies = state.quarantinedFamilies,
+          isInspectionMode = state.isInspectionMode,
+          selectedTargetIds = selectedIds,
+          isJa = isJa,
+          onSelectTarget = { target ->
+            if (!state.isInspectionMode) {
+              onToggleInspectionMode()
             }
-
-            // スタンプ押印アニメーション (自作ドット絵スタンプテクスチャ)
-            val stamped = state.stampedVerdictAnim
-            if (stamped != null) {
-              Box(
-                modifier = Modifier
-                  .fillMaxSize()
-                  .background(Color.Black.copy(alpha = 0.18f)),
-                contentAlignment = Alignment.Center,
-              ) {
-                val stampBmp = PixelArtAssets.getStampBitmap(stamped)
-                Canvas(modifier = Modifier.size(width = 210.dp, height = 64.dp)) {
-                  val scale = (minOf(size.width / stampBmp.width, size.height / stampBmp.height))
-                    .toInt()
-                    .coerceAtLeast(2)
-                  val drawW = stampBmp.width * scale
-                  val drawH = stampBmp.height * scale
-                  drawImage(
-                    image = stampBmp,
-                    dstOffset = IntOffset(
-                      ((size.width - drawW) / 2f).toInt(),
-                      ((size.height - drawH) / 2f).toInt(),
-                    ),
-                    dstSize = IntSize(drawW, drawH),
-                    filterQuality = FilterQuality.None,
-                  )
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // ポリシーブックオーバーレイ (画面下部から呼び出せる参照資料)
-      androidx.compose.animation.AnimatedVisibility(
-        visible = state.isPolicyBookOpen,
-        enter = fadeIn(tween(120)),
-        exit = fadeOut(tween(100)),
-        modifier = Modifier.fillMaxSize(),
-      ) {
-        PolicyBookOverlay(
-          day = state.currentDay,
-          rules = state.activeRules,
-          selectedTargetIds = setOfNotNull(
-            state.firstInspectTarget?.targetId,
-            state.secondInspectTarget?.targetId,
-          ),
-          onSelectRule = onSelectInspectTarget,
-          onClose = onTogglePolicyBook,
+            onSelectInspectTarget(target)
+          },
+          modifier = Modifier.fillMaxSize(),
         )
       }
 
-      // ツール選択トレイ (操作エリア下端直上に出る4ツールパレット)
-      androidx.compose.animation.AnimatedVisibility(
-        visible = state.isToolTrayOpen,
-        enter = fadeIn(tween(110)),
-        exit = fadeOut(tween(90)),
-        modifier = Modifier
-          .align(Alignment.BottomCenter)
-          .padding(bottom = 4.dp),
-      ) {
+      val activeTool = state.activeToolSlip
+      if (activeTool != null && packet != null) {
+        ToolResultSlip(
+          packet = packet,
+          toolType = activeTool,
+          isSelected = "tool.${activeTool.name}" in selectedIds,
+          isJa = isJa,
+          onSelectAsTarget = { target ->
+            if (!state.isInspectionMode) {
+              onToggleInspectionMode()
+            }
+            onSelectInspectTarget(target)
+          },
+          onClose = onCloseToolSlip,
+          modifier = Modifier.align(Alignment.BottomCenter),
+        )
+      }
+
+      if (state.isPolicyBookOpen) {
+        PolicyBookOverlay(
+          rules = state.activeRules,
+          selectedTargetIds = selectedIds,
+          isJa = isJa,
+          onSelectRule = { target ->
+            if (!state.isInspectionMode) {
+              onToggleInspectionMode()
+            }
+            onSelectInspectTarget(target)
+          },
+          onClose = onTogglePolicyBook,
+          modifier = Modifier.fillMaxSize(),
+        )
+      }
+
+      if (state.isToolTrayOpen) {
         ToolPaletteStrip(
-          usedTools = state.inspectedToolsForCurrentPacket,
-          onPickTool = onOpenTool,
+          inspectedTools = state.inspectedToolsForCurrentPacket,
+          onSelectTool = onOpenTool,
+          onClose = onToggleToolTray,
+          modifier = Modifier.align(Alignment.BottomCenter),
+        )
+      }
+
+      if (state.isInterPacketInterval) {
+        InterPacketIntervalOverlay(
+          headline = state.intervalHeadline,
+          subtext = state.intervalSubtext,
+          stampedVerdict = state.stampedVerdictAnim,
+          isVirusAlert = state.isVirusExplosionActive,
+          isJa = isJa,
+          onSkipInterval = onSkipInterval,
+          modifier = Modifier.fillMaxSize(),
         )
       }
     }
 
-    Spacer(modifier = Modifier.height(6.dp))
-
-    // 下端 常設アクショントレイ
     PermanentActionTray(
-      isInspectionMode = state.isInspectionMode,
       isPolicyBookOpen = state.isPolicyBookOpen,
       isToolTrayOpen = state.isToolTrayOpen,
-      activeToolCount = state.inspectedToolsForCurrentPacket.size,
+      isInspectionMode = state.isInspectionMode,
+      isInterPacketInterval = state.isInterPacketInterval,
+      quarantineRecommended = packet?.threatFamily != null &&
+        packet.threatFamily in state.quarantinedFamilies &&
+        state.upgrades.has(UpgradeType.QUARANTINE_INTEL),
+      isJa = isJa,
       onTogglePolicyBook = onTogglePolicyBook,
       onToggleToolTray = onToggleToolTray,
-      onToggleInspection = onToggleInspectionMode,
+      onToggleInspectionMode = onToggleInspectionMode,
       onApplyVerdict = onApplyVerdict,
     )
   }
 }
 
 @Composable
+private fun InterPacketIntervalOverlay(
+  headline: String,
+  subtext: String,
+  stampedVerdict: Verdict?,
+  isVirusAlert: Boolean,
+  isJa: Boolean,
+  onSkipInterval: () -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  val style = LocalAppStyle.current
+  Box(
+    modifier = modifier
+      .clip(RoundedCornerShape(12.dp))
+      .background(if (isVirusAlert) Color(0xF2380909) else Color(0xE6141814))
+      .padding(16.dp),
+    contentAlignment = Alignment.Center,
+  ) {
+    Column(
+      modifier = Modifier
+        .fillMaxWidth()
+        .verticalScroll(rememberScrollState()),
+      horizontalAlignment = Alignment.CenterHorizontally,
+      verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+      if (isVirusAlert) {
+        Image(
+          bitmap = PixelArtAssets.virusExplosionBitmap(1),
+          contentDescription = "Virus Breach",
+          filterQuality = FilterQuality.None,
+          modifier = Modifier.size(68.dp),
+        )
+      } else if (stampedVerdict != null) {
+        Image(
+          bitmap = PixelArtAssets.getStampBitmap(stampedVerdict),
+          contentDescription = stampedVerdict.displayLabel,
+          filterQuality = FilterQuality.None,
+          modifier = Modifier
+            .width(148.dp)
+            .height(52.dp),
+        )
+      }
+
+      Text(
+        text = headline,
+        style = MaterialTheme.typography.titleMedium,
+        color = if (isVirusAlert) PacketsPalette.BlockLight else style.crtPhosphorBright,
+        textAlign = TextAlign.Center,
+      )
+
+      Text(
+        text = subtext,
+        style = MaterialTheme.typography.bodyMedium,
+        color = style.paperBright,
+        textAlign = TextAlign.Center,
+      )
+
+      Text(
+        text = if (isJa) {
+          "上部モニターで通信パケットを転送中… 一息つくか下のボタンで即座に次を呼べます"
+        } else {
+          "Transferring packet across gate... Take a breath or call next packet now."
+        },
+        style = MaterialTheme.typography.labelSmall,
+        color = style.paperMid.copy(alpha = 0.85f),
+        textAlign = TextAlign.Center,
+      )
+
+      Box(
+        modifier = Modifier
+          .fillMaxWidth(0.88f)
+          .heightIn(min = 54.dp)
+          .clip(RoundedCornerShape(10.dp))
+          .background(if (isVirusAlert) PacketsPalette.BlockMid else style.crtGridDark)
+          .border(
+            1.5.dp,
+            if (isVirusAlert) PacketsPalette.BlockLight else style.crtPhosphorBright,
+            RoundedCornerShape(10.dp),
+          )
+          .clickable(onClick = onSkipInterval)
+          .padding(horizontal = 16.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center,
+      ) {
+        Text(
+          text = if (isJa) "次の通信をすぐ呼ぶ ▶" else "CALL NEXT PACKET ▶",
+          style = MaterialTheme.typography.titleMedium,
+          color = Color.White,
+        )
+      }
+    }
+  }
+}
+
+@Composable
 private fun InspectionCompareOverlay(
-  first: InspectableTarget,
+  first: InspectableTarget?,
   second: InspectableTarget?,
   result: InspectionResult?,
+  isJa: Boolean,
   onClear: () -> Unit,
-  onOpenRecommendedTool: (ToolType) -> Unit,
+  onQuickOpenTool: (ToolType) -> Unit,
 ) {
-  val borderColor = when {
-    result == null -> PacketsPalette.QuarantineLight
-    result.matched -> PacketsPalette.CrtPhosphorMid
-    else -> PacketsPalette.BlockLight
-  }
+  val style = LocalAppStyle.current
   Column(
     modifier = Modifier
       .fillMaxWidth()
-      .background(PacketsPalette.DeskMid)
-      .border(2.dp, borderColor)
-      .padding(6.dp),
+      .clip(RoundedCornerShape(10.dp))
+      .background(Color(0xFF15241B))
+      .border(1.5.dp, style.crtPhosphorMid, RoundedCornerShape(10.dp))
+      .padding(horizontal = 10.dp, vertical = 8.dp),
+    verticalArrangement = Arrangement.spacedBy(4.dp),
   ) {
     Row(
       modifier = Modifier.fillMaxWidth(),
       horizontalArrangement = Arrangement.SpaceBetween,
       verticalAlignment = Alignment.CenterVertically,
     ) {
+      val statusText = when {
+        first == null -> if (isJa) "【照合チェック】比較したい項目を2つタップしてください" else "[INSPECT] Tap 2 items to compare"
+        second == null -> if (isJa) "1項目目: [${first.label}] → 比較する2項目目をタップ" else "1st: [${first.label}] -> Tap 2nd item"
+        else -> if (isJa) "照合完了: [${first.label}] × [${second.label}]" else "Matched: [${first.label}] x [${second.label}]"
+      }
       Text(
-        text = result?.title ?: "突合モード: 2つ目の比較対象をタップ",
+        text = statusText,
         style = MaterialTheme.typography.labelMedium,
-        color = borderColor,
+        color = style.crtPhosphorBright,
+        modifier = Modifier.weight(1f),
       )
-      Text(
-        text = "[閉じる]",
-        style = MaterialTheme.typography.labelSmall,
-        color = PacketsPalette.PaperBright,
-        modifier = Modifier.clickable { onClear() },
-      )
+      if (first != null) {
+        Box(
+          modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(style.crtGridDark)
+            .clickable(onClick = onClear)
+            .heightIn(min = 34.dp)
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+          contentAlignment = Alignment.Center,
+        ) {
+          Text(
+            text = if (isJa) "リセット" else "CLEAR",
+            style = MaterialTheme.typography.labelSmall,
+            color = style.crtPhosphorBright,
+          )
+        }
+      }
     }
-    Spacer(modifier = Modifier.height(3.dp))
-    // 上下2フィールド重ね拡大比較
-    Box(
-      modifier = Modifier
-        .fillMaxWidth()
-        .background(PacketsPalette.PaperBright)
-        .border(1.dp, PacketsPalette.InkDark)
-        .padding(horizontal = 6.dp, vertical = 3.dp),
-    ) {
-      Text(
-        text = "A [${first.label}]: ${first.value}",
-        style = MaterialTheme.typography.labelMedium,
-        color = PacketsPalette.InkDark,
-        maxLines = 2,
-        overflow = TextOverflow.Ellipsis,
-      )
-    }
-    Spacer(modifier = Modifier.height(2.dp))
-    Box(
-      modifier = Modifier
-        .fillMaxWidth()
-        .background(PacketsPalette.PaperMid)
-        .border(1.dp, PacketsPalette.InkDark)
-        .padding(horizontal = 6.dp, vertical = 3.dp),
-    ) {
-      Text(
-        text = if (second != null) "B [${second.label}]: ${second.value}" else "B: カード項目 / 規則 / ツール結果を選択...",
-        style = MaterialTheme.typography.labelMedium,
-        color = PacketsPalette.InkDark,
-        maxLines = 2,
-        overflow = TextOverflow.Ellipsis,
-      )
-    }
+
     if (result != null) {
-      Spacer(modifier = Modifier.height(3.dp))
       Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
       ) {
         Text(
-          text = result.detail,
-          style = MaterialTheme.typography.labelSmall,
-          color = PacketsPalette.PaperBright,
-          maxLines = 2,
-          overflow = TextOverflow.Ellipsis,
+          text = "${result.title}: ${result.detail}",
+          style = MaterialTheme.typography.bodyMedium,
+          color = if (!result.matched) PacketsPalette.QuarantineLight else style.paperBright,
           modifier = Modifier.weight(1f),
         )
         val recTool = result.recommendedTool
         if (recTool != null) {
-          Spacer(modifier = Modifier.width(6.dp))
+          Spacer(modifier = Modifier.width(8.dp))
           Box(
             modifier = Modifier
-              .background(PacketsPalette.CrtBlack)
-              .border(1.dp, PacketsPalette.CrtPhosphorBright)
-              .clickable { onOpenRecommendedTool(recTool) }
-              .padding(horizontal = 6.dp, vertical = 3.dp),
+              .clip(RoundedCornerShape(6.dp))
+              .background(PacketsPalette.QuarantineDark)
+              .clickable { onQuickOpenTool(recTool) }
+              .heightIn(min = 36.dp)
+              .padding(horizontal = 10.dp, vertical = 6.dp),
+            contentAlignment = Alignment.Center,
           ) {
             Text(
-              text = "${recTool.shortLabel}起動",
+              text = "${recTool.shortLabel}を開く",
               style = MaterialTheme.typography.labelSmall,
-              color = PacketsPalette.CrtPhosphorBright,
+              color = PacketsPalette.QuarantineLight,
             )
           }
         }
@@ -351,98 +403,195 @@ private fun InspectionCompareOverlay(
 @Composable
 private fun PacketCard(
   packet: Packet,
+  upgrades: UpgradeState,
+  quarantinedFamilies: Set<String>,
+  isInspectionMode: Boolean,
   selectedTargetIds: Set<String>,
+  isJa: Boolean,
   onSelectTarget: (InspectableTarget) -> Unit,
   modifier: Modifier = Modifier,
 ) {
+  val style = LocalAppStyle.current
+  val avatarBmp = remember(packet.from.avatarSeed) {
+    PixelArtAssets.getAvatarBitmap(packet.from.avatarSeed)
+  }
+
+  val isExternalSender = !packet.from.email.endsWith("@olease.co.jp")
+  val showExternalBadge = upgrades.has(UpgradeType.EXTERNAL_HIGHLIGHT) && (isExternalSender || packet.to.isExternal)
+  val showScannerLv1Badge = upgrades.has(UpgradeType.AUTO_SCANNER_LV1) && (
+    packet.tools.plaintextFlagged ||
+      packet.from.authMethod.contains("FAIL", ignoreCase = true) ||
+      packet.from.authMethod.contains("NONE", ignoreCase = true)
+    )
+  val showScannerLv2Badge = upgrades.has(UpgradeType.AUTO_SCANNER_LV2) && (
+    packet.tools.deepScanFlagged ||
+      packet.tools.threatDbFlagged ||
+      packet.tools.trafficFlagged ||
+      (packet.attachment != null && packet.attachment.quickScanStatus != "CLEAN")
+    )
+  val knownThreatFamily = packet.threatFamily?.takeIf { it in quarantinedFamilies }
+
   Column(
     modifier = modifier
-      .background(PacketsPalette.PaperBright)
-      .border(2.dp, PacketsPalette.PaperShadow)
-      .padding(8.dp),
-    verticalArrangement = Arrangement.spacedBy(4.dp),
+      .clip(RoundedCornerShape(10.dp))
+      .background(style.paperBright)
+      .padding(12.dp)
+      .verticalScroll(rememberScrollState()),
+    verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
-    // 差出人ヘッダ + 24x24ピクセルアバター
+    if (showExternalBadge || showScannerLv1Badge || showScannerLv2Badge || knownThreatFamily != null) {
+      Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (knownThreatFamily != null) {
+          val hasIntelUpgrade = upgrades.has(UpgradeType.QUARANTINE_INTEL)
+          Box(
+            modifier = Modifier
+              .fillMaxWidth()
+              .clip(RoundedCornerShape(8.dp))
+              .background(if (hasIntelUpgrade) Color(0xFF5E1919) else Color(0xFF5C4212))
+              .padding(horizontal = 10.dp, vertical = 6.dp),
+          ) {
+            Text(
+              text = if (hasIntelUpgrade) {
+                "⚡ 検疫DB一致 [$knownThreatFamily]: 『遮断(BLOCK)』または『検疫』で即対処可能！"
+              } else {
+                "📌 既知の検疫型 [$knownThreatFamily]: 過去に検疫したマルウェアと同型です"
+              },
+              style = MaterialTheme.typography.labelMedium,
+              color = Color.White,
+            )
+          }
+        }
+        if (showExternalBadge) {
+          Box(
+            modifier = Modifier
+              .fillMaxWidth()
+              .clip(RoundedCornerShape(6.dp))
+              .background(Color(0xFF7A2E14))
+              .padding(horizontal = 10.dp, vertical = 5.dp),
+          ) {
+            Text(
+              text = if (isJa) "⚠ [社外アドレス強調] 社外ドメインを含む通信です" else "⚠ [EXTERNAL DOMAIN DETECTED]",
+              style = MaterialTheme.typography.labelSmall,
+              color = Color.White,
+            )
+          }
+        }
+        if (showScannerLv1Badge) {
+          Box(
+            modifier = Modifier
+              .fillMaxWidth()
+              .clip(RoundedCornerShape(6.dp))
+              .background(Color(0xFF6B4812))
+              .padding(horizontal = 10.dp, vertical = 5.dp),
+          ) {
+            Text(
+              text = "🔍 [自動検知Lv1] 送信元認証またはヘッダに不審な不一致を検出",
+              style = MaterialTheme.typography.labelSmall,
+              color = Color.White,
+            )
+          }
+        }
+        if (showScannerLv2Badge) {
+          Box(
+            modifier = Modifier
+              .fillMaxWidth()
+              .clip(RoundedCornerShape(6.dp))
+              .background(Color(0xFF6E1818))
+              .padding(horizontal = 10.dp, vertical = 5.dp),
+          ) {
+            Text(
+              text = "🚨 [自動検知Lv2] 危険ペイロード・不正通信または脅威シグネチャを検出！",
+              style = MaterialTheme.typography.labelSmall,
+              color = Color.White,
+            )
+          }
+        }
+      }
+    }
+
     Row(
       modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(10.dp),
       verticalAlignment = Alignment.CenterVertically,
     ) {
-      val avatarBmp = PixelArtAssets.getAvatarBitmap(packet.from.avatarSeed)
-      Canvas(
+      Image(
+        bitmap = avatarBmp,
+        contentDescription = "Sender Avatar",
+        filterQuality = FilterQuality.None,
         modifier = Modifier
-          .size(48.dp)
-          .border(1.dp, PacketsPalette.InkDark),
+          .size(56.dp)
+          .clip(RoundedCornerShape(8.dp))
+          .border(1.5.dp, style.inkDark, RoundedCornerShape(8.dp)),
+      )
+
+      Column(
+        modifier = Modifier.weight(1f),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
       ) {
-        drawImage(
-          image = avatarBmp,
-          dstOffset = IntOffset.Zero,
-          dstSize = IntSize(size.width.toInt(), size.height.toInt()),
-          filterQuality = FilterQuality.None,
-        )
-      }
-      Spacer(modifier = Modifier.width(8.dp))
-      Column(modifier = Modifier.weight(1f)) {
         Row(
           modifier = Modifier.fillMaxWidth(),
           horizontalArrangement = Arrangement.SpaceBetween,
           verticalAlignment = Alignment.CenterVertically,
         ) {
           Text(
-            text = "${packet.from.displayName} [${packet.from.department}]",
+            text = "${packet.from.displayName} (${packet.from.department})",
             style = MaterialTheme.typography.titleMedium,
-            color = PacketsPalette.InkDark,
-            maxLines = 1,
+            color = style.inkDark,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
           )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-          InspectableChip(
-            target = InspectableTarget(
-              targetId = "from.email",
-              field = PacketField.FROM,
-              label = "差出人アドレス",
-              value = packet.from.email,
-            ),
-            isSelected = "from.email" in selectedTargetIds,
-            text = packet.from.email,
-            onSelect = onSelectTarget,
-            modifier = Modifier.weight(1.2f),
-          )
-          InspectableChip(
-            target = InspectableTarget(
-              targetId = "from.auth",
-              field = PacketField.FROM,
-              label = "認証方式",
-              value = packet.from.authMethod,
-            ),
-            isSelected = "from.auth" in selectedTargetIds,
-            text = packet.from.authMethod,
-            onSelect = onSelectTarget,
-            modifier = Modifier.weight(0.9f),
+          Spacer(modifier = Modifier.width(8.dp))
+          Text(
+            text = "#${packet.id}",
+            style = MaterialTheme.typography.labelSmall,
+            color = style.inkMuted,
+            softWrap = false,
+            maxLines = 1,
           )
         }
+        Text(
+          text = if (isInspectionMode) {
+            "【照合チェック中】怪しい項目と規則・ツールをタップして照合"
+          } else {
+            "項目をタップすると『照合チェック』を開始できます"
+          },
+          style = MaterialTheme.typography.labelSmall,
+          color = style.inkHighlight,
+        )
       }
     }
 
-    // 宛先 & 日時行
+    InspectableChip(
+      target = InspectableTarget(
+        targetId = "from.email",
+        field = PacketField.FROM,
+        label = "差出人アドレス",
+        value = packet.from.email,
+      ),
+      isSelected = "from.email" in selectedTargetIds,
+      text = "差出人: ${packet.from.email}",
+      highlightAlert = showExternalBadge && isExternalSender,
+      onSelect = onSelectTarget,
+      modifier = Modifier.fillMaxWidth(),
+    )
+
     Row(
       modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.spacedBy(4.dp),
+      horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-      val extTag = if (packet.to.isExternal) "[社外] " else "[社内] "
       InspectableChip(
         target = InspectableTarget(
-          targetId = "to.email",
-          field = PacketField.TO,
-          label = "宛先",
-          value = "$extTag${packet.to.email}",
+          targetId = "from.auth",
+          field = PacketField.FROM,
+          label = "認証方式",
+          value = packet.from.authMethod,
         ),
-        isSelected = "to.email" in selectedTargetIds,
-        text = "宛先: $extTag${packet.to.email}",
-        highlightAlert = packet.to.isExternal,
+        isSelected = "from.auth" in selectedTargetIds,
+        text = "認証: ${packet.from.authMethod}",
+        highlightAlert = showScannerLv1Badge,
         onSelect = onSelectTarget,
-        modifier = Modifier.weight(1.4f),
+        modifier = Modifier.weight(1f),
       )
       InspectableChip(
         target = InspectableTarget(
@@ -452,13 +601,27 @@ private fun PacketCard(
           value = packet.timestamp,
         ),
         isSelected = "timestamp" in selectedTargetIds,
-        text = packet.timestamp.takeLast(11),
+        text = "日時: ${packet.timestamp}",
         onSelect = onSelectTarget,
-        modifier = Modifier.weight(0.75f),
+        modifier = Modifier.weight(1f),
       )
     }
 
-    // 件名
+    val extTag = if (packet.to.isExternal) "[社外] " else "[社内] "
+    InspectableChip(
+      target = InspectableTarget(
+        targetId = "to.email",
+        field = PacketField.TO,
+        label = "宛先",
+        value = "$extTag${packet.to.email}",
+      ),
+      isSelected = "to.email" in selectedTargetIds,
+      text = "宛先: $extTag${packet.to.displayName} <${packet.to.email}>",
+      highlightAlert = showExternalBadge && packet.to.isExternal,
+      onSelect = onSelectTarget,
+      modifier = Modifier.fillMaxWidth(),
+    )
+
     InspectableChip(
       target = InspectableTarget(
         targetId = "subject",
@@ -472,15 +635,17 @@ private fun PacketCard(
       modifier = Modifier.fillMaxWidth(),
     )
 
-    // 本文ボックス
+    val isBodySelected = "body" in selectedTargetIds
     Box(
       modifier = Modifier
         .fillMaxWidth()
-        .weight(1f)
-        .background(PacketsPalette.PaperMid)
+        .heightIn(min = 68.dp)
+        .clip(RoundedCornerShape(8.dp))
+        .background(if (isBodySelected) Color(0xFFFFE5B8) else style.paperMid)
         .border(
-          width = if ("body" in selectedTargetIds) 2.dp else 1.dp,
-          color = if ("body" in selectedTargetIds) PacketsPalette.InkHighlight else PacketsPalette.PaperShadow,
+          width = if (isBodySelected) 2.dp else 1.dp,
+          color = if (isBodySelected) style.inkHighlight else style.paperShadow,
+          shape = RoundedCornerShape(8.dp),
         )
         .clickable {
           onSelectTarget(
@@ -492,18 +657,15 @@ private fun PacketCard(
             ),
           )
         }
-        .padding(6.dp),
+        .padding(12.dp),
     ) {
       Text(
         text = packet.body,
-        style = MaterialTheme.typography.bodyMedium,
-        color = PacketsPalette.InkDark,
-        maxLines = 4,
-        overflow = TextOverflow.Ellipsis,
+        style = MaterialTheme.typography.bodyLarge,
+        color = style.inkDark,
       )
     }
 
-    // 添付ファイル (存在する場合)
     val att = packet.attachment
     if (att != null) {
       InspectableChip(
@@ -514,14 +676,13 @@ private fun PacketCard(
           value = "${att.fileName} (${att.declaredSizeKb}KB / ${att.quickScanStatus})",
         ),
         isSelected = "attachment" in selectedTargetIds,
-        text = "添付: ${att.fileName} | 申告 ${att.declaredSizeKb}KB | ${att.quickScanStatus}",
-        highlightAlert = att.quickScanStatus != "CLEAN",
+        text = "📎 添付: ${att.fileName}  |  申告 ${att.declaredSizeKb}KB  |  簡易検査: ${att.quickScanStatus}",
+        highlightAlert = att.quickScanStatus != "CLEAN" || showScannerLv2Badge,
         onSelect = onSelectTarget,
         modifier = Modifier.fillMaxWidth(),
       )
     }
 
-    // 認証・証明書情報 (存在する場合)
     val cert = packet.certificate
     if (cert != null) {
       InspectableChip(
@@ -532,48 +693,55 @@ private fun PacketCard(
           value = "${cert.issuer} / 期限:${cert.validUntil} / ${cert.tokenType}",
         ),
         isSelected = "certificate" in selectedTargetIds,
-        text = "証明書: ${cert.issuer} | 期限 ${cert.validUntil} | ${cert.tokenType}",
+        text = "🔐 証明書: ${cert.issuer}  |  有効期限 ${cert.validUntil}  |  ${cert.tokenType}",
         onSelect = onSelectTarget,
         modifier = Modifier.fillMaxWidth(),
       )
     }
 
-    // 袖之下付箋 (賄賂イベント)
     val bribe = packet.bribeOffer
     if (bribe != null) {
-      Box(
+      Column(
         modifier = Modifier
           .fillMaxWidth()
+          .clip(RoundedCornerShape(8.dp))
           .background(PacketsPalette.BribeNoteBg)
-          .border(1.dp, PacketsPalette.QuarantineDark)
-          .padding(horizontal = 6.dp, vertical = 3.dp),
+          .border(1.5.dp, PacketsPalette.InkHighlight, RoundedCornerShape(8.dp))
+          .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
       ) {
         Text(
-          text = "【袖之下付箋】${bribe.senderNote}",
-          style = MaterialTheme.typography.labelSmall,
+          text = "💴 ${bribe.offerTitle} [特別報酬 +¥%,d]".format(bribe.bonusAmount),
+          style = MaterialTheme.typography.labelMedium,
+          color = PacketsPalette.InkHighlight,
+        )
+        Text(
+          text = bribe.senderNote,
+          style = MaterialTheme.typography.bodyMedium,
           color = PacketsPalette.InkDark,
-          maxLines = 1,
-          overflow = TextOverflow.Ellipsis,
         )
       }
     }
 
-    // 監査回避ネットワーク(AAN)指令帯
-    val aanNote = packet.auditAvoidanceInstruction
-    if (packet.isAuditAvoidanceEvent && aanNote != null) {
-      Box(
+    if (packet.isAuditAvoidanceEvent && packet.auditAvoidanceInstruction != null) {
+      Column(
         modifier = Modifier
           .fillMaxWidth()
-          .background(PacketsPalette.CrtBlack)
-          .border(1.dp, PacketsPalette.CrtPhosphorBright)
-          .padding(horizontal = 6.dp, vertical = 3.dp),
+          .clip(RoundedCornerShape(8.dp))
+          .background(Color(0xFF1F2D3A))
+          .border(1.5.dp, PacketsPalette.QuarantineLight, RoundedCornerShape(8.dp))
+          .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
       ) {
         Text(
-          text = aanNote,
-          style = MaterialTheme.typography.labelSmall,
-          color = PacketsPalette.CrtPhosphorBright,
-          maxLines = 2,
-          overflow = TextOverflow.Ellipsis,
+          text = "🕶 監査回避ネットワーク (AAN) 暗号指令",
+          style = MaterialTheme.typography.labelMedium,
+          color = PacketsPalette.QuarantineLight,
+        )
+        Text(
+          text = packet.auditAvoidanceInstruction,
+          style = MaterialTheme.typography.bodyMedium,
+          color = Color.White,
         )
       }
     }
@@ -589,29 +757,32 @@ private fun InspectableChip(
   modifier: Modifier = Modifier,
   highlightAlert: Boolean = false,
 ) {
+  val style = LocalAppStyle.current
   val bg = when {
-    isSelected -> PacketsPalette.QuarantineLight.copy(alpha = 0.35f)
-    highlightAlert -> PacketsPalette.BlockLight.copy(alpha = 0.16f)
-    else -> PacketsPalette.PaperMid
+    isSelected -> Color(0xFFFFDF9E)
+    highlightAlert -> Color(0xFFFAD8D0)
+    else -> style.paperMid
   }
-  val border = when {
-    isSelected -> PacketsPalette.InkHighlight
+  val borderColor = when {
+    isSelected -> style.inkHighlight
     highlightAlert -> PacketsPalette.BlockMid
-    else -> PacketsPalette.PaperShadow
+    else -> style.paperShadow
   }
   Box(
     modifier = modifier
+      .heightIn(min = 44.dp)
+      .clip(RoundedCornerShape(8.dp))
       .background(bg)
-      .border(if (isSelected) 2.dp else 1.dp, border)
+      .border(if (isSelected) 2.dp else 1.dp, borderColor, RoundedCornerShape(8.dp))
       .clickable { onSelect(target) }
-      .padding(horizontal = 5.dp, vertical = 3.dp),
+      .padding(horizontal = 10.dp, vertical = 8.dp),
+    contentAlignment = Alignment.CenterStart,
   ) {
     Text(
       text = text,
-      style = MaterialTheme.typography.labelSmall,
-      color = PacketsPalette.InkDark,
-      maxLines = 1,
-      overflow = TextOverflow.Ellipsis,
+      style = MaterialTheme.typography.bodyMedium,
+      color = style.inkDark,
+      fontWeight = if (isSelected || highlightAlert) FontWeight.Bold else FontWeight.Normal,
     )
   }
 }
@@ -621,6 +792,7 @@ private fun ToolResultSlip(
   packet: Packet,
   toolType: ToolType,
   isSelected: Boolean,
+  isJa: Boolean,
   onSelectAsTarget: (InspectableTarget) -> Unit,
   onClose: () -> Unit,
   modifier: Modifier = Modifier,
@@ -632,11 +804,17 @@ private fun ToolResultSlip(
     ToolType.DEEP_SCAN -> packet.tools.deepScanResult to packet.tools.deepScanFlagged
   }
   val targetId = "tool.${toolType.name}"
+
   Column(
     modifier = modifier
-      .fillMaxWidth(0.92f)
-      .background(PacketsPalette.SlipPaper)
-      .border(2.dp, if (isSelected) PacketsPalette.InkHighlight else if (flagged) PacketsPalette.BlockMid else PacketsPalette.InkDark)
+      .fillMaxWidth(0.96f)
+      .clip(RoundedCornerShape(10.dp))
+      .background(if (isSelected) Color(0xFFFFE5B4) else PacketsPalette.SlipPaper)
+      .border(
+        width = 2.dp,
+        color = if (isSelected || flagged) PacketsPalette.InkHighlight else PacketsPalette.InkDark,
+        shape = RoundedCornerShape(10.dp),
+      )
       .clickable {
         onSelectAsTarget(
           InspectableTarget(
@@ -647,7 +825,8 @@ private fun ToolResultSlip(
           ),
         )
       }
-      .padding(7.dp),
+      .padding(12.dp),
+    verticalArrangement = Arrangement.spacedBy(6.dp),
   ) {
     Row(
       modifier = Modifier.fillMaxWidth(),
@@ -655,42 +834,55 @@ private fun ToolResultSlip(
       verticalAlignment = Alignment.CenterVertically,
     ) {
       Text(
-        text = "[出力紙] ${toolType.displayName} (タップで突合)",
-        style = MaterialTheme.typography.labelSmall,
-        color = if (flagged) PacketsPalette.BlockDark else PacketsPalette.InkMuted,
+        text = if (isJa) {
+          "🧾 [解析スリップ] ${toolType.displayName} (タップで照合)"
+        } else {
+          "🧾 [TOOL SLIP] ${toolType.displayName} (Tap to inspect)"
+        },
+        style = MaterialTheme.typography.labelMedium,
+        color = if (flagged) PacketsPalette.InkHighlight else PacketsPalette.InkDark,
+        modifier = Modifier.weight(1f),
       )
-      Text(
-        text = "[X]",
-        style = MaterialTheme.typography.labelSmall,
-        color = PacketsPalette.InkDark,
-        modifier = Modifier.clickable { onClose() },
-      )
+      Spacer(modifier = Modifier.width(6.dp))
+      Box(
+        modifier = Modifier
+          .clip(RoundedCornerShape(6.dp))
+          .background(PacketsPalette.InkDark)
+          .clickable(onClick = onClose)
+          .heightIn(min = 34.dp)
+          .padding(horizontal = 10.dp, vertical = 4.dp),
+        contentAlignment = Alignment.Center,
+      ) {
+        Text(
+          text = if (isJa) "閉じる ✕" else "CLOSE ✕",
+          style = MaterialTheme.typography.labelSmall,
+          color = PacketsPalette.PaperBright,
+        )
+      }
     }
-    Spacer(modifier = Modifier.height(2.dp))
     Text(
       text = resultText,
-      style = MaterialTheme.typography.bodyMedium,
-      color = if (flagged) PacketsPalette.BlockDark else PacketsPalette.InkDark,
-      maxLines = 3,
-      overflow = TextOverflow.Ellipsis,
+      style = MaterialTheme.typography.bodyLarge,
+      color = PacketsPalette.InkDark,
     )
   }
 }
 
 @Composable
 private fun PolicyBookOverlay(
-  day: Int,
   rules: List<PolicyRule>,
   selectedTargetIds: Set<String>,
+  isJa: Boolean,
   onSelectRule: (InspectableTarget) -> Unit,
   onClose: () -> Unit,
+  modifier: Modifier = Modifier,
 ) {
   Column(
-    modifier = Modifier
-      .fillMaxSize()
+    modifier = modifier
+      .clip(RoundedCornerShape(12.dp))
       .background(PacketsPalette.BookCover)
-      .border(2.dp, PacketsPalette.InkDark)
-      .padding(6.dp),
+      .padding(12.dp),
+    verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
     Row(
       modifier = Modifier.fillMaxWidth(),
@@ -698,48 +890,90 @@ private fun PolicyBookOverlay(
       verticalAlignment = Alignment.CenterVertically,
     ) {
       Text(
-        text = "社内セキュリティポリシーブック (DAY $day)",
+        text = if (isJa) "📘 保安規則ブック (タップで照合選択)" else "📘 SECURITY POLICY BOOK",
         style = MaterialTheme.typography.titleMedium,
         color = PacketsPalette.PaperBright,
+        modifier = Modifier.weight(1f),
       )
+      Spacer(modifier = Modifier.width(8.dp))
       Box(
         modifier = Modifier
-          .background(PacketsPalette.PaperBright)
-          .border(1.dp, PacketsPalette.InkDark)
-          .clickable { onClose() }
-          .padding(horizontal = 8.dp, vertical = 2.dp),
+          .clip(RoundedCornerShape(8.dp))
+          .background(PacketsPalette.BlockMid)
+          .clickable(onClick = onClose)
+          .heightIn(min = 42.dp)
+          .padding(horizontal = 14.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center,
       ) {
-        Text("閉じる", style = MaterialTheme.typography.labelSmall, color = PacketsPalette.InkDark)
+        Text(
+          text = if (isJa) "閉じる ✕" else "CLOSE ✕",
+          style = MaterialTheme.typography.labelMedium,
+          color = Color.White,
+        )
       }
     }
-    Spacer(modifier = Modifier.height(4.dp))
+
     Column(
       modifier = Modifier
-        .fillMaxSize()
-        .background(PacketsPalette.BookPaper)
-        .border(1.dp, PacketsPalette.PaperShadow)
-        .verticalScroll(rememberScrollState())
-        .padding(6.dp),
-      verticalArrangement = Arrangement.spacedBy(5.dp),
+        .fillMaxWidth()
+        .clip(RoundedCornerShape(8.dp))
+        .background(Color(0xFF1A2736))
+        .padding(8.dp),
+      verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
       Text(
-        text = "▼ 認定ドメイン: olease.co.jp / partner-cloud.jp / yamato-cpa.jp / jdc-infra.jp",
-        style = MaterialTheme.typography.labelSmall,
-        color = PacketsPalette.InkMuted,
+        text = if (isJa) "【判定スタンプの使い分けガイド】" else "[VERDICT GUIDE]",
+        style = MaterialTheme.typography.labelMedium,
+        color = PacketsPalette.QuarantineLight,
       )
       Text(
-        text = "▼ 各条項をタップすると通信カード項目と突合できます",
+        text = "🟢 許可(PASS): 規則違反のない正常な業務メールを通過させる",
         style = MaterialTheme.typography.labelSmall,
-        color = PacketsPalette.InkHighlight,
+        color = PacketsPalette.PassLight,
       )
+      Text(
+        text = "🔴 遮断(BLOCK): 未承認ドメイン・なりすまし・期限切れ証明書等の『規則違反』を拒否",
+        style = MaterialTheme.typography.labelSmall,
+        color = PacketsPalette.BlockLight,
+      )
+      Text(
+        text = "🟡 検疫(QUARANTINE): ウイルス添付・容量偽装・C2ボット通信等の『攻撃』を隔離 (+¥600＆脅威DB登録)",
+        style = MaterialTheme.typography.labelSmall,
+        color = PacketsPalette.QuarantineLight,
+      )
+    }
+
+    Column(
+      modifier = Modifier
+        .weight(1f)
+        .fillMaxWidth()
+        .verticalScroll(rememberScrollState()),
+      verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
       rules.forEach { rule ->
         val targetId = "rule.${rule.id}"
         val selected = targetId in selectedTargetIds
+        val isQuarantineRule = rule.id == "R3" || rule.id == "R5" || rule.description.contains("QUARANTINE")
+        val badgeText = if (isQuarantineRule && rule.id == "R3") {
+          "攻撃・偽装 → 検疫 (QUARANTINE)"
+        } else if (rule.id == "R5") {
+          "違反 → 遮断 / C2攻撃 → 検疫"
+        } else {
+          "規則違反 → 遮断 (BLOCK)"
+        }
+        val badgeBg = if (isQuarantineRule) PacketsPalette.QuarantineDark else PacketsPalette.BlockDark
+
         Column(
           modifier = Modifier
             .fillMaxWidth()
-            .background(if (selected) PacketsPalette.QuarantineLight.copy(alpha = 0.35f) else PacketsPalette.PaperBright)
-            .border(if (selected) 2.dp else 1.dp, if (selected) PacketsPalette.InkHighlight else PacketsPalette.PaperShadow)
+            .heightIn(min = 68.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (selected) Color(0xFFFFDF9E) else PacketsPalette.BookPaper)
+            .border(
+              width = if (selected) 2.5.dp else 1.dp,
+              color = if (selected) PacketsPalette.InkHighlight else PacketsPalette.PaperShadow,
+              shape = RoundedCornerShape(10.dp),
+            )
             .clickable {
               onSelectRule(
                 InspectableTarget(
@@ -750,17 +984,38 @@ private fun PolicyBookOverlay(
                 ),
               )
             }
-            .padding(6.dp),
+            .padding(12.dp),
+          verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-          Text(
-            text = "${rule.title} [DAY ${rule.effectiveFromDay}〜]",
-            style = MaterialTheme.typography.labelMedium,
-            color = PacketsPalette.InkDark,
-          )
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+          ) {
+            Text(
+              text = rule.title,
+              style = MaterialTheme.typography.titleMedium,
+              color = PacketsPalette.InkDark,
+              modifier = Modifier.weight(1f),
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Box(
+              modifier = Modifier
+                .clip(RoundedCornerShape(6.dp))
+                .background(badgeBg)
+                .padding(horizontal = 8.dp, vertical = 3.dp),
+            ) {
+              Text(
+                text = badgeText,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White,
+              )
+            }
+          }
           Text(
             text = rule.description,
-            style = MaterialTheme.typography.labelSmall,
-            color = PacketsPalette.InkMuted,
+            style = MaterialTheme.typography.bodyMedium,
+            color = PacketsPalette.InkDark,
           )
         }
       }
@@ -770,34 +1025,65 @@ private fun PolicyBookOverlay(
 
 @Composable
 private fun ToolPaletteStrip(
-  usedTools: Set<ToolType>,
-  onPickTool: (ToolType) -> Unit,
+  inspectedTools: Set<ToolType>,
+  onSelectTool: (ToolType) -> Unit,
+  onClose: () -> Unit,
+  modifier: Modifier = Modifier,
 ) {
-  Row(
-    modifier = Modifier
+  val style = LocalAppStyle.current
+  Column(
+    modifier = modifier
       .fillMaxWidth()
-      .background(PacketsPalette.DeskMid)
-      .border(2.dp, PacketsPalette.CrtPhosphorMid)
-      .padding(6.dp),
-    horizontalArrangement = Arrangement.spacedBy(4.dp),
+      .clip(RoundedCornerShape(12.dp))
+      .background(Color(0xF5151E18))
+      .border(1.5.dp, style.crtPhosphorMid, RoundedCornerShape(12.dp))
+      .padding(10.dp),
+    verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
-    ToolType.entries.forEach { tool ->
-      val isUsed = tool in usedTools
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.SpaceBetween,
+      verticalAlignment = Alignment.CenterVertically,
+    ) {
+      Text(
+        text = "🛠 解析ツール選択 (タップで出力スリップ表示)",
+        style = MaterialTheme.typography.labelMedium,
+        color = style.crtPhosphorBright,
+      )
       Box(
         modifier = Modifier
-          .weight(1f)
-          .background(if (isUsed) PacketsPalette.CrtGridDark else PacketsPalette.CrtBlack)
-          .border(1.dp, PacketsPalette.CrtPhosphorMid)
-          .clickable { onPickTool(tool) }
-          .padding(vertical = 6.dp, horizontal = 2.dp),
-        contentAlignment = Alignment.Center,
+          .clip(RoundedCornerShape(6.dp))
+          .background(style.crtGridDark)
+          .clickable(onClick = onClose)
+          .padding(horizontal = 10.dp, vertical = 4.dp),
       ) {
-        Text(
-          text = tool.shortLabel,
-          style = MaterialTheme.typography.labelSmall,
-          color = PacketsPalette.CrtPhosphorBright,
-          maxLines = 1,
-        )
+        Text("✕", style = MaterialTheme.typography.labelMedium, color = style.crtPhosphorBright)
+      }
+    }
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+      ToolType.entries.forEach { tool ->
+        val used = tool in inspectedTools
+        Box(
+          modifier = Modifier
+            .weight(1f)
+            .heightIn(min = 48.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (used) style.crtGridDark else Color(0xFF233329))
+            .border(1.dp, style.crtPhosphorMid, RoundedCornerShape(8.dp))
+            .clickable { onSelectTool(tool) }
+            .padding(horizontal = 6.dp, vertical = 8.dp),
+          contentAlignment = Alignment.Center,
+        ) {
+          Text(
+            text = tool.shortLabel,
+            style = MaterialTheme.typography.labelMedium,
+            color = style.crtPhosphorBright,
+            textAlign = TextAlign.Center,
+          )
+        }
       }
     }
   }
@@ -805,79 +1091,83 @@ private fun ToolPaletteStrip(
 
 @Composable
 private fun PermanentActionTray(
-  isInspectionMode: Boolean,
   isPolicyBookOpen: Boolean,
   isToolTrayOpen: Boolean,
-  activeToolCount: Int,
+  isInspectionMode: Boolean,
+  isInterPacketInterval: Boolean,
+  quarantineRecommended: Boolean,
+  isJa: Boolean,
   onTogglePolicyBook: () -> Unit,
   onToggleToolTray: () -> Unit,
-  onToggleInspection: () -> Unit,
+  onToggleInspectionMode: () -> Unit,
   onApplyVerdict: (Verdict) -> Unit,
 ) {
   Column(
-    modifier = Modifier
-      .fillMaxWidth()
-      .background(PacketsPalette.DeskMid)
-      .border(1.dp, PacketsPalette.DeskLight)
-      .padding(6.dp),
-    verticalArrangement = Arrangement.spacedBy(5.dp),
+    modifier = Modifier.fillMaxWidth(),
+    verticalArrangement = Arrangement.spacedBy(6.dp),
   ) {
-    // 補助ツールボタン列
     Row(
       modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.spacedBy(6.dp),
+      horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
       UtilityTrayButton(
-        label = if (isPolicyBookOpen) "規則[開]" else "規則ブック",
+        label = if (isJa) "📘 規則ブック" else "📘 RULES",
         active = isPolicyBookOpen,
         onClick = onTogglePolicyBook,
         modifier = Modifier.weight(1f),
       )
       UtilityTrayButton(
-        label = if (activeToolCount > 0) "ツール($activeToolCount)" else "ツール",
+        label = if (isJa) "🛠 ツール" else "🛠 TOOLS",
         active = isToolTrayOpen,
         onClick = onToggleToolTray,
         modifier = Modifier.weight(1f),
       )
       UtilityTrayButton(
-        label = if (isInspectionMode) "突合[ON]" else "突合モード",
+        label = if (isJa) {
+          if (isInspectionMode) "🔍 照合中[ON]" else "🔍 照合チェック"
+        } else {
+          if (isInspectionMode) "🔍 INSPECT[ON]" else "🔍 INSPECT"
+        },
         active = isInspectionMode,
-        onClick = onToggleInspection,
-        modifier = Modifier.weight(1f),
+        onClick = onToggleInspectionMode,
+        modifier = Modifier.weight(1.1f),
       )
     }
 
-    // スタンプボタン列 (PASS / BLOCK / QUARANTINE)
     Row(
       modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.spacedBy(6.dp),
+      horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
       StampActionButton(
-        verdict = Verdict.PASS,
-        jpCaption = "通過",
-        bg = PacketsPalette.PassMid,
-        border = PacketsPalette.PassLight,
-        shadow = PacketsPalette.PassDark,
-        onTrigger = { onApplyVerdict(Verdict.PASS) },
+        title = "PASS",
+        subtitle = if (isJa) "許可 (正常)" else "ALLOW",
+        bgColor = PacketsPalette.PassDark,
+        borderColor = PacketsPalette.PassLight,
+        enabled = !isInterPacketInterval,
+        onClick = { onApplyVerdict(Verdict.PASS) },
         modifier = Modifier.weight(1f),
       )
       StampActionButton(
-        verdict = Verdict.BLOCK,
-        jpCaption = "遮断",
-        bg = PacketsPalette.BlockMid,
-        border = PacketsPalette.BlockLight,
-        shadow = PacketsPalette.BlockDark,
-        onTrigger = { onApplyVerdict(Verdict.BLOCK) },
+        title = "BLOCK",
+        subtitle = if (isJa) {
+          if (quarantineRecommended) "遮断 (DB推奨!)" else "遮断 (違反)"
+        } else {
+          "REJECT"
+        },
+        bgColor = PacketsPalette.BlockDark,
+        borderColor = if (quarantineRecommended) Color.White else PacketsPalette.BlockLight,
+        enabled = !isInterPacketInterval,
+        onClick = { onApplyVerdict(Verdict.BLOCK) },
         modifier = Modifier.weight(1f),
       )
       StampActionButton(
-        verdict = Verdict.QUARANTINE,
-        jpCaption = "検疫",
-        bg = PacketsPalette.QuarantineMid,
-        border = PacketsPalette.QuarantineLight,
-        shadow = PacketsPalette.QuarantineDark,
-        onTrigger = { onApplyVerdict(Verdict.QUARANTINE) },
-        modifier = Modifier.weight(1f),
+        title = "QUARANTINE",
+        subtitle = if (isJa) "検疫 (攻撃+¥600)" else "ISOLATE +¥600",
+        bgColor = PacketsPalette.QuarantineDark,
+        borderColor = PacketsPalette.QuarantineLight,
+        enabled = !isInterPacketInterval,
+        onClick = { onApplyVerdict(Verdict.QUARANTINE) },
+        modifier = Modifier.weight(1.15f),
       )
     }
   }
@@ -890,89 +1180,72 @@ private fun UtilityTrayButton(
   onClick: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
+  val style = LocalAppStyle.current
   Box(
     modifier = modifier
-      .background(if (active) PacketsPalette.QuarantineMid else PacketsPalette.DeskDark)
-      .border(1.dp, if (active) PacketsPalette.QuarantineLight else PacketsPalette.PaperShadow)
-      .clickable { onClick() }
-      .padding(vertical = 6.dp),
+      .height(48.dp)
+      .clip(RoundedCornerShape(10.dp))
+      .background(if (active) style.crtGridDark else style.deskLight)
+      .border(
+        width = if (active) 2.dp else 1.dp,
+        color = if (active) style.crtPhosphorBright else style.paperShadow.copy(alpha = 0.6f),
+        shape = RoundedCornerShape(10.dp),
+      )
+      .clickable(onClick = onClick)
+      .padding(horizontal = 6.dp),
     contentAlignment = Alignment.Center,
   ) {
     Text(
       text = label,
       style = MaterialTheme.typography.labelMedium,
-      color = if (active) PacketsPalette.InkDark else PacketsPalette.PaperBright,
+      color = if (active) style.crtPhosphorBright else style.paperBright,
       maxLines = 1,
+      overflow = TextOverflow.Ellipsis,
     )
   }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun StampActionButton(
-  verdict: Verdict,
-  jpCaption: String,
-  bg: Color,
-  border: Color,
-  shadow: Color,
-  onTrigger: () -> Unit,
+  title: String,
+  subtitle: String,
+  bgColor: Color,
+  borderColor: Color,
+  enabled: Boolean,
+  onClick: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
-  val haptic = LocalHapticFeedback.current
-  val interactionSource = remember { MutableInteractionSource() }
-  val isPressed by interactionSource.collectIsPressedAsState()
-  val pressOffset by animateDpAsState(
-    targetValue = if (isPressed) 3.dp else 0.dp,
-    animationSpec = tween(durationMillis = 60),
-    label = "stampPress",
-  )
-
   Box(
     modifier = modifier
-      .height(50.dp)
-      .semantics { contentDescription = "${verdict.displayLabel} ($jpCaption)" }
-      .background(shadow)
-      .padding(bottom = 3.dp)
-      .offset(y = pressOffset)
-      .background(bg)
-      .border(2.dp, border)
-      .combinedClickable(
-        interactionSource = interactionSource,
-        indication = null,
-        onClick = {
-          haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-          onTrigger()
-        },
-        onLongClick = {
-          haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-          onTrigger()
-        },
+      .height(64.dp)
+      .clip(RoundedCornerShape(12.dp))
+      .background(if (enabled) bgColor else bgColor.copy(alpha = 0.4f))
+      .border(
+        width = 2.dp,
+        color = if (enabled) borderColor else borderColor.copy(alpha = 0.35f),
+        shape = RoundedCornerShape(12.dp),
       )
-      .padding(horizontal = 4.dp, vertical = 2.dp),
+      .clickable(enabled = enabled, onClick = onClick)
+      .padding(horizontal = 6.dp, vertical = 6.dp),
     contentAlignment = Alignment.Center,
   ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-      val stampBmp = PixelArtAssets.getStampBitmap(verdict)
-      Canvas(modifier = Modifier.size(width = 76.dp, height = 22.dp)) {
-        val scale = (minOf(size.width / stampBmp.width, size.height / stampBmp.height))
-          .toInt()
-          .coerceAtLeast(1)
-        val drawW = stampBmp.width * scale
-        val drawH = stampBmp.height * scale
-        drawImage(
-          image = stampBmp,
-          dstOffset = IntOffset(
-            ((size.width - drawW) / 2f).toInt(),
-            ((size.height - drawH) / 2f).toInt(),
-          ),
-          dstSize = IntSize(drawW, drawH),
-          filterQuality = FilterQuality.None,
-        )
-      }
+    Column(
+      horizontalAlignment = Alignment.CenterHorizontally,
+      verticalArrangement = Arrangement.Center,
+    ) {
       Text(
-        text = jpCaption,
+        text = title,
+        style = MaterialTheme.typography.titleMedium,
+        color = if (enabled) borderColor else borderColor.copy(alpha = 0.5f),
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+      )
+      Text(
+        text = subtitle,
         style = MaterialTheme.typography.labelSmall,
-        color = Color.White,
+        color = if (enabled) Color.White else Color.White.copy(alpha = 0.5f),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
       )
     }
   }

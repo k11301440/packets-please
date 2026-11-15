@@ -8,7 +8,11 @@ import com.tommy.packetsplease.domain.InspectableTarget
 import com.tommy.packetsplease.domain.M1TuningConfig
 import com.tommy.packetsplease.domain.PacketField
 import com.tommy.packetsplease.domain.PacketGenerator
+import com.tommy.packetsplease.domain.AppSettings
+import com.tommy.packetsplease.domain.FontScaleOption
 import com.tommy.packetsplease.domain.RuleEngine
+import com.tommy.packetsplease.domain.UpgradeState
+import com.tommy.packetsplease.domain.UpgradeType
 import com.tommy.packetsplease.domain.Verdict
 import java.io.File
 import kotlinx.serialization.json.Json
@@ -170,5 +174,64 @@ class DomainLogicTest {
     assertEquals(EndingType.WHISTLEBLOWER, EconomyEngine.resolveCampaignEnding(auditRisk = 0, aanCooperationCount = 2, bribeAcceptedCount = 0))
     assertEquals(EndingType.SHADOW_GATEKEEPER, EconomyEngine.resolveCampaignEnding(auditRisk = 10, aanCooperationCount = 3, bribeAcceptedCount = 0))
     assertEquals(EndingType.GRAY_SURVIVOR, EconomyEngine.resolveCampaignEnding(auditRisk = 25, aanCooperationCount = 0, bribeAcceptedCount = 1))
+  }
+
+  @Test
+  fun defaultShiftDurationIsThreeMinutesAndDefaultFontIsLarge() {
+    assertEquals(180, M1TuningConfig().dayDurationSeconds)
+    val defaults = AppSettings()
+    assertEquals(FontScaleOption.LARGE, defaults.fontScale)
+  }
+
+  @Test
+  fun fatalVirusBreachAndQuarantineIntelUpgradeWorkCorrectly() {
+    val day3Queue = PacketGenerator.generateDayQueue(content, 3)
+    val virusPacket = day3Queue.first { it.isFatalVirus }
+
+    // Passing fatal malware triggers fatalVirusBreached
+    val breached = RuleEngine.evaluateVerdict(
+      packet = virusPacket,
+      verdict = Verdict.PASS,
+      dailyWarningsSoFar = 0,
+      config = config,
+    )
+    assertFalse(breached.isCorrect)
+    assertTrue(breached.fatalVirusBreached)
+
+    // Quarantining registers threat family
+    val quarantined = RuleEngine.evaluateVerdict(
+      packet = virusPacket,
+      verdict = Verdict.QUARANTINE,
+      dailyWarningsSoFar = 0,
+      config = config,
+    )
+    assertTrue(quarantined.isCorrect)
+    assertNotNull(quarantined.newlyQuarantinedFamily)
+
+    val knownFamily = quarantined.newlyQuarantinedFamily!!
+    // Once QUARANTINE_INTEL is owned, BLOCK is accepted for known threat family + FAST_GATE adds +300
+    val blockedWithIntel = RuleEngine.evaluateVerdict(
+      packet = virusPacket,
+      verdict = Verdict.BLOCK,
+      dailyWarningsSoFar = 0,
+      config = config,
+      upgrades = UpgradeState(setOf(UpgradeType.QUARANTINE_INTEL, UpgradeType.FAST_GATE)),
+      quarantinedFamilies = setOf(knownFamily),
+    )
+    assertTrue(blockedWithIntel.isCorrect)
+    assertTrue(blockedWithIntel.usedQuarantineIntel)
+    assertEquals(config.passReward + RuleEngine.FAST_GATE_BONUS, blockedWithIntel.budgetDelta)
+  }
+
+  @Test
+  fun combinatorialShiftBatchProducesDiversePackets() {
+    val batch1 = PacketGenerator.generateShiftBatch(content, day = 5, batchIndex = 1, count = 12)
+    val batch2 = PacketGenerator.generateShiftBatch(content, day = 5, batchIndex = 2, count = 12)
+    assertEquals(12, batch1.size)
+    assertEquals(12, batch2.size)
+    val uniqueSubjects = (batch1 + batch2).map { it.subject }.toSet()
+    val uniqueSenders = (batch1 + batch2).map { it.from.email }.toSet()
+    assertTrue("Expected high subject variety, got ${uniqueSubjects.size}", uniqueSubjects.size >= 10)
+    assertTrue("Expected high sender variety, got ${uniqueSenders.size}", uniqueSenders.size >= 10)
   }
 }

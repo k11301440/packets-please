@@ -10,6 +10,8 @@ import kotlin.math.abs
 object PixelArtAssets {
 
   private val avatarCache = HashMap<Int, ImageBitmap>()
+  private val boothEntrantCache = HashMap<Int, ImageBitmap>()
+  private val virusFrameCache = HashMap<Int, ImageBitmap>()
   private val stampCache = HashMap<Verdict, ImageBitmap>()
 
   private val pixelFont5x7: Map<Char, List<String>> = mapOf(
@@ -36,6 +38,7 @@ object PixelArtAssets {
   val externalNodeSprite: ImageBitmap by lazy { buildServerSprite(isInternal = false) }
   val internalNodeSprite: ImageBitmap by lazy { buildServerSprite(isInternal = true) }
   val firewallGateSprite: ImageBitmap by lazy { buildFirewallGateSprite() }
+  val appLogoCrestBitmap: ImageBitmap by lazy { buildLogoCrest32x32() }
 
   fun getStampBitmap(verdict: Verdict): ImageBitmap {
     return stampCache.getOrPut(verdict) { buildStampTexture(verdict) }
@@ -43,6 +46,16 @@ object PixelArtAssets {
 
   fun getAvatarBitmap(seed: Int): ImageBitmap {
     return avatarCache.getOrPut(seed) { buildAvatar24x24(seed) }
+  }
+
+  fun boothEntrantBitmap(seed: Int): ImageBitmap {
+    val variant = abs(seed) % 8
+    return boothEntrantCache.getOrPut(variant) { buildBoothEntrant16x20(variant) }
+  }
+
+  fun virusExplosionBitmap(frame: Int): ImageBitmap {
+    val normalized = abs(frame) % 3
+    return virusFrameCache.getOrPut(normalized) { buildVirusExplosion24x24(normalized) }
   }
 
   /**
@@ -339,6 +352,198 @@ object PixelArtAssets {
         }
       }
     }
+    return bmp.asImageBitmap()
+  }
+
+  /**
+   * 32x32 公式エンブレムロゴ（アプリアイコンと統一された盾＋ゲート＋封筒シルエット）
+   */
+  private fun buildLogoCrest32x32(): ImageBitmap {
+    val size = 32
+    val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    bmp.eraseColor(AndroidColor.TRANSPARENT)
+
+    val bright = AndroidColor.rgb(140, 255, 159)
+    val mid = AndroidColor.rgb(51, 204, 94)
+    val dark = AndroidColor.rgb(19, 54, 29)
+    val voidBlack = AndroidColor.rgb(7, 18, 10)
+    val paper = AndroidColor.rgb(243, 231, 211)
+    val ink = AndroidColor.rgb(33, 24, 18)
+    val passC = AndroidColor.rgb(83, 196, 116)
+    val warnC = AndroidColor.rgb(245, 183, 59)
+    val blockC = AndroidColor.rgb(232, 90, 90)
+
+    fun halfWidthAtRow(y: Int): Int = when {
+      y in 3..17 -> 13
+      y in 18..20 -> 11
+      y in 21..23 -> 9
+      y in 24..26 -> 6
+      y in 27..28 -> 3
+      else -> -1
+    }
+
+    for (y in 3..28) {
+      val hw = halfWidthAtRow(y)
+      if (hw <= 0) continue
+      val left = 16 - hw
+      val right = 15 + hw
+      val nextHw = halfWidthAtRow(y + 1)
+      for (x in left..right) {
+        val isBorder = y == 3 || y == 28 || x == left || x == right ||
+          (nextHw > 0 && (x < 16 - nextHw || x > 15 + nextHw))
+        bmp.setPixel(x, y, if (isBorder) bright else dark)
+      }
+    }
+
+    // 内側ゲート枠 & 黒窓
+    for (y in 7..20) {
+      for (x in 8..23) {
+        val isGateFrame = x <= 9 || x >= 22 || y <= 8 || y >= 19
+        bmp.setPixel(x, y, if (isGateFrame) mid else voidBlack)
+      }
+    }
+
+    // 中央封筒 + フラップ
+    for (y in 11..16) {
+      for (x in 11..20) {
+        val isFlap = (y == 11 && (x == 11 || x == 20)) ||
+          (y == 12 && (x == 12 || x == 19)) ||
+          (y == 13 && (x == 13 || x == 18)) ||
+          (y == 14 && x in 14..17)
+        bmp.setPixel(x, y, if (isFlap) ink else paper)
+      }
+    }
+
+    // PASS / QUARANTINE / BLOCK ドットアクセント
+    for (y in 22..23) {
+      for (x in 11..12) bmp.setPixel(x, y, passC)
+      for (x in 15..16) bmp.setPixel(x, y, warnC)
+      for (x in 19..20) bmp.setPixel(x, y, blockC)
+    }
+
+    return bmp.asImageBitmap()
+  }
+
+  /**
+   * 本家入国審査ブース風の16x20待機人物シルエット・ドット絵
+   */
+  private fun buildBoothEntrant16x20(variant: Int): ImageBitmap {
+    val w = 16
+    val h = 20
+    val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+    bmp.eraseColor(AndroidColor.TRANSPARENT)
+
+    val outline = AndroidColor.rgb(140, 255, 159)
+    val coat = when (variant % 4) {
+      0 -> AndroidColor.rgb(34, 92, 54)
+      1 -> AndroidColor.rgb(44, 78, 96)
+      2 -> AndroidColor.rgb(92, 68, 42)
+      else -> AndroidColor.rgb(58, 72, 64)
+    }
+    val skin = AndroidColor.rgb(184, 232, 168)
+    val visor = AndroidColor.rgb(19, 54, 29)
+    val hasHat = variant % 2 == 1
+    val stepShift = if (variant % 3 == 0) 1 else 0
+
+    // 帽子/髪 (y: 1..3)
+    val topY = if (hasHat) 1 else 2
+    for (y in topY..3) {
+      for (x in 5..10) bmp.setPixel(x, y, outline)
+    }
+    if (hasHat) {
+      for (x in 4..11) bmp.setPixel(x, 3, outline)
+    }
+
+    // 頭部 (y: 4..8)
+    for (y in 4..8) {
+      for (x in 5..10) {
+        val isEye = y == 6 && (x == 7 || x == 9)
+        val isEdge = x == 5 || x == 10
+        bmp.setPixel(x, y, when {
+          isEye -> visor
+          isEdge -> outline
+          else -> skin
+        })
+      }
+    }
+
+    // 胴体・コート (y: 9..15)
+    for (y in 9..15) {
+      for (x in 3..12) {
+        if (y == 9 && (x == 3 || x == 12)) continue
+        val isBorder = x == 3 || x == 12 || y == 9 || y == 15
+        val isTie = y in 10..13 && x == 8
+        bmp.setPixel(x, y, when {
+          isTie -> outline
+          isBorder -> outline
+          else -> coat
+        })
+      }
+    }
+
+    // 脚 (y: 16..19)
+    for (y in 16..19) {
+      for (x in (5 - stepShift)..(6 - stepShift)) {
+        if (x in 0 until w) bmp.setPixel(x, y, outline)
+      }
+      for (x in (9 + stepShift)..(10 + stepShift)) {
+        if (x in 0 until w) bmp.setPixel(x, y, outline)
+      }
+    }
+
+    return bmp.asImageBitmap()
+  }
+
+  /**
+   * 致命的ウイルス誤通過時の24x24破壊アニメーション (3フレーム)
+   */
+  private fun buildVirusExplosion24x24(frame: Int): ImageBitmap {
+    val size = 24
+    val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    bmp.eraseColor(AndroidColor.TRANSPARENT)
+
+    val redBright = AndroidColor.rgb(255, 82, 82)
+    val redDark = AndroidColor.rgb(165, 24, 24)
+    val amber = AndroidColor.rgb(255, 193, 69)
+    val white = AndroidColor.rgb(255, 244, 214)
+
+    val radius = when (frame) {
+      0 -> 4
+      1 -> 8
+      else -> 11
+    }
+
+    for (y in 0 until size) {
+      for (x in 0 until size) {
+        val dx = x - 12
+        val dy = y - 12
+        val manhattan = abs(dx) + abs(dy)
+        val diag = abs(abs(dx) - abs(dy)) <= 1
+        val axis = dx == 0 || dy == 0
+        when {
+          frame == 2 && (abs(dx) <= 4 && abs(dy) <= 4) -> {
+            // 中央にウイルス警告スカル/Xマーク
+            val isX = abs(dx) == abs(dy)
+            bmp.setPixel(x, y, if (isX) white else redDark)
+          }
+          manhattan <= radius -> {
+            bmp.setPixel(
+              x,
+              y,
+              when {
+                manhattan <= 2 -> white
+                manhattan <= radius - 2 -> amber
+                else -> redBright
+              },
+            )
+          }
+          (diag || axis) && manhattan <= radius + 5 && (x + y + frame) % 2 == 0 -> {
+            bmp.setPixel(x, y, if ((x * y + frame) % 3 == 0) amber else redBright)
+          }
+        }
+      }
+    }
+
     return bmp.asImageBitmap()
   }
 

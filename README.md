@@ -1,62 +1,42 @@
-# パケッツ,プリーズ (Packets, Please) — v0.3 Prototype
+# パケッツ,プリーズ (Packets, Please) — v0.4 Prototype
 
-[パケッツ-プリーズ-要件定義書-v0-3.md](docs/パケッツ-プリーズ-要件定義書-v0-3.md) に基づいて実装した、Android ネイティブ（Kotlin / Jetpack Compose + Canvas）製の試作プロトタイプです。
+通信検閲・ファイアウォール業務シミュレーションゲーム（Android / Kotlin / Jetpack Compose + Canvas）。
+プレイヤーはファイアウォール管理AI端末の操作官として、1日**3分（180秒）**の制限時間内に届くメール・通信パケットを精査し、**PASS（許可）** / **BLOCK（遮断）** / **QUARANTINE（検疫）** を判断して社内ネットワークを守り抜きます。
 
-## 概要
+## v0.4 主な特徴
 
-- **ジャンル**: 通信検閲・監査シミュレーション（縦持ち専用・完全オフライン動作）
-- **対象環境**: Android minSdk 26 / compileSdk 36 / targetSdk 36
-- **画面構成**:
-  - **上段監視 CRT モニタ（緑・黒リン光配色）**: 経過時間・部署予算・誤審警告カウント・パケットフロー（社外 ↔ FW検閲ゲート ↔ 社内LAN / 検疫）・警告バナー・M1デバッグパネル起動ボタン
-  - **下段検閲デスク（暖色紙面）**: 差出人ピクセルアバター、認証署名・宛先・件名・本文の突合カード、社内セキュリティポリシーブック、解析ツール（脅威DB・平文ログ・流量計測・深度スキャン）、突合モード（2要素比較による矛盾検出）、PASS / BLOCK / QUARANTINE 自作ビットマップスタンプ
-- **プロトタイプ実装機能**:
-  - 14日間キャンペーン / エンドレス監査モード
-  - 日次タイムスケジュール（朝の通達 → 検閲業務シフト → 夕方の部署予算精算・オートセーブ）
-  - 誤審警告（1日2回まで無料・3回目以降罰金）、賄賂・監査リスク、監査回避ネットワーク（AAN）クエスト、6種類のエンディング分岐
-  - M1プロトタイプ調整パネル（基準解像度切替、1日時間設定、不正検知通知タイミング切替、効果音ミュート、Dayジャンプ）
-  - AudioTrack による効果音合成（BGMなし）およびハプティクス演出
+- **ホーム画面 & アプリアイコン刷新**:
+  - 浮遊パケット＋脈動ドット絵紋章ロゴを配置したシンプルなタイトル画面。
+  - 外周枠線（ボーダー）を廃し、角丸スマートフォン画面に自然に馴染むレイアウトを採用。
+  - 専用ピクセル紋章アイコン（`ic_launcher_foreground` / `ic_launcher_background`）を実装。
+- **設定ダイアログ**:
+  - テーマ切替（CRTダーク / 暖色デスク / ハイコントラスト）、ベースカラー（エメラルド / アンバー / クリムゾン / シアン）、言語切替（日本語 / English）、効果音ボリューム（0%〜100%）、文字サイズ（小 / 標準 / 大 / 特大）、開発者向けM1パネル表示切替、プライバシーポリシー閲覧、GitHubリポジトリリンクを搭載。
+- **指で操作しやすいプレイUIと3分タイマー制**:
+  - 件数ノルマ制を廃止し、1プレイ3分（180秒）のカウントダウン方式へ変更。
+  - タップ領域を拡大（44dp以上の照合チップ、64dpの2段表記スタンプボタン）、用語を「突合」から「**照合**」へ統一。
+  - 行動選択後の間隙（インターバル）を設け、上部モニタでのドット絵通信アニメーションや、致命的ウイルス侵入時の**破壊爆発アニメーション＋サイレン効果音**を実装。
+- **遮断と検疫の明確化 & 検疫DB連携**:
+  - **遮断 (BLOCK)**: 規則違反（未承認ドメイン、なりすまし、期限切れ証明書等）を拒否。
+  - **検疫 (QUARANTINE)**: ウイルス添付、容量偽装、C2通信等の「攻撃」を隔離解析（特別報酬 +¥600 ＆ 脅威ファミリDB登録）。
+  - 設備投資アップグレードで **社外アドレス強調** / **自動検知 Lv1・Lv2** / **検疫DB連携（既知脅威は遮断でも即対処可能）** / **高速ゲート報酬** を購入可能。
+- **組み合わせ自動生成 & 図鑑・実績・スポンサー枠**:
+  - 大規模な名前・部署・ドメイン・偽装パターン・マルウェア種別プールを組み合わせ生成し、重複の少ない通信キューを生成。
+  - マルチエンディング図鑑（発見済みの結末のみを表示）および12種類の実績システム。
+  - 夕方決算画面にオフライン模擬スポンサーCM（5秒視聴で補助金 +¥1,000）を実装。
 
-## ディレクトリ構成（3層分離）
+## プライバシーポリシー・公式リポジトリ
 
-```text
-app/src/main/
-├── assets/
-│   ├── game_content.json         # 14日分のシナリオ・ポリシー規則・イベント定義
-│   └── OFL.txt                   # DotGothic16 SIL Open Font License
-├── res/font/dotgothic16.ttf      # DotGothic16 ピクセルフォント
-└── kotlin/com/tommy/packetsplease/
-    ├── domain/                   # 純粋Kotlinドメイン層（Android非依存）
-    │   ├── Models.kt
-    │   ├── RuleEngine.kt
-    │   ├── EconomyEngine.kt
-    │   └── PacketGenerator.kt
-    ├── data/                     # データ永続化・アセット読込層
-    │   ├── GameContentRepository.kt
-    │   └── SaveDataRepository.kt
-    └── ui/                       # Compose / Canvas プレゼンテーション層
-        ├── MainActivity.kt
-        ├── MainScreen.kt
-        ├── GameViewModel.kt
-        ├── audio/RetroSoundEngine.kt
-        ├── pixel/PixelArtAssets.kt
-        ├── components/
-        │   ├── SurveillanceMonitor.kt
-        │   └── InspectionDeskArea.kt
-        └── theme/
-```
+- [PRIVACY_POLICY.md](PRIVACY_POLICY.md)
+- GitHub: https://github.com/k11301440/packets-please
 
 ## ビルド・テストコマンド
 
-Windows 環境（プロジェクトパスに非ASCII文字を含む場合でも動作するよう `app/build.gradle.kts` でビルド出力を `~/.gradle/olease-build/app` に分離しています）：
+Windows 環境でも非ASCIIパスを避けて安定ビルドできるよう、`app/build.gradle.kts` でビルド成果物を `~/.gradle/olease-build/app` に出力しています。
 
 ```powershell
 # 単体テスト + Debug APK ビルド
 .\gradlew.bat testDebugUnitTest assembleDebug --no-daemon
 ```
 
-- 単体テスト: `app/src/test/kotlin/com/tommy/packetsplease/DomainLogicTest.kt`（7テスト）
-- APK のダウンロードは本リポジトリの **Releases** を参照してください。
-
-## ライセンス・フォントクレジット
-
-- フォント: [DotGothic16](OFL.txt) (SIL Open Font License 1.1)
+- 単体テスト: `app/src/test/kotlin/com/tommy/packetsplease/DomainLogicTest.kt`
+- Debug APK は GitHub Releases または `app/build/outputs/apk/debug/app-debug.apk` を参照してください。

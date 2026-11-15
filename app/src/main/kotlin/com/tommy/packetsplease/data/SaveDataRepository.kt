@@ -6,6 +6,8 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.tommy.packetsplease.domain.AppSettings
+import com.tommy.packetsplease.domain.CollectionProgress
 import com.tommy.packetsplease.domain.M1TuningConfig
 import com.tommy.packetsplease.domain.SavedProgress
 import kotlinx.coroutines.flow.first
@@ -24,6 +26,8 @@ class SaveDataRepository(private val context: Context) {
 
   private val progressKey = stringPreferencesKey("saved_progress_json")
   private val tuningKey = stringPreferencesKey("m1_tuning_json")
+  private val settingsKey = stringPreferencesKey("app_settings_json")
+  private val collectionKey = stringPreferencesKey("collection_progress_json")
 
   suspend fun loadProgress(): SavedProgress? {
     val prefs = context.packetsDataStore.data.first()
@@ -54,6 +58,32 @@ class SaveDataRepository(private val context: Context) {
     val encoded = json.encodeToString(M1TuningConfig.serializer(), config)
     context.packetsDataStore.edit { prefs ->
       prefs[tuningKey] = encoded
+    }
+  }
+
+  suspend fun loadSettings(): AppSettings {
+    val prefs = context.packetsDataStore.data.first()
+    val raw = prefs[settingsKey] ?: return AppSettings()
+    return runCatching { json.decodeFromString<AppSettings>(raw) }.getOrDefault(AppSettings())
+  }
+
+  suspend fun saveSettings(settings: AppSettings) {
+    val encoded = json.encodeToString(AppSettings.serializer(), settings)
+    context.packetsDataStore.edit { prefs ->
+      prefs[settingsKey] = encoded
+    }
+  }
+
+  suspend fun loadCollection(): CollectionProgress {
+    val prefs = context.packetsDataStore.data.first()
+    val raw = prefs[collectionKey] ?: return CollectionProgress()
+    return runCatching { json.decodeFromString<CollectionProgress>(raw) }.getOrDefault(CollectionProgress())
+  }
+
+  suspend fun saveCollection(collection: CollectionProgress) {
+    val encoded = json.encodeToString(CollectionProgress.serializer(), collection)
+    context.packetsDataStore.edit { prefs ->
+      prefs[collectionKey] = encoded
     }
   }
 }

@@ -24,7 +24,7 @@
     {
       "day": 1,
       "morningHeadline": "DAY 01: ファイアウォールAI稼働開始",
-      "morningMemo": "本日より新設ファイアウォール『OLE-FW』の運用を開始する。初日はウォームアップとして2件のみ審査せよ。規則R1を確認し、PASSまたはBLOCKを押下すること。",
+      "morningMemo": "本日より新設ファイアウォール『OLE-FW』が稼働する。情シス部・田中から最初の挨拶通信が届くはずだ。制限時間内に規則R1を確認し、許可(PASS)か遮断(BLOCK)で検閲せよ。",
       "targetPacketCount": 2,
       "newRules": [
         {
@@ -122,7 +122,7 @@
     {
       "day": 2,
       "morningHeadline": "DAY 02: 認証と流量チェックの導入",
-      "morningMemo": "本日より規則R2を発効する。SPF/DKIM認証の失敗(FAIL)や、添付ファイル申告サイズと実流量の偽装を見抜け。予算維持のため誤審に注意せよ。",
+      "morningMemo": "昨夜の点検で差出人偽装の予兆が見つかった。本日より規則R2を発効する。SPF/DKIMの失敗(FAIL)やサイズ偽装を見抜け。予算維持のため誤審に注意せよ。",
       "targetPacketCount": 4,
       "newRules": [
         {
@@ -196,7 +196,7 @@
     {
       "day": 3,
       "morningHeadline": "DAY 03: 検疫機能と証明書確認の解禁",
-      "morningMemo": "本日より第3の判定『QUARANTINE(検疫)』および証明書確認(R3/R4)を適用する。マルウェア偽装はBLOCKではなくQUARANTINEで報告しボーナスを得よ。",
+      "morningMemo": "社内端末を狙う新型トロイの木馬が出回り始めた。本日より『QUARANTINE(検疫)』と証明書確認(R3/R4)を解禁する。マルウェアは単なる遮断ではなく検疫で隔離せよ。誤通過させると社内LANが感染する。",
       "targetPacketCount": 5,
       "newRules": [
         {
@@ -270,7 +270,9 @@
             "trafficFlagged": false,
             "deepScanResult": "MALWARE DETECTED: Win32.Dropper.Olease（要QUARANTINE）",
             "deepScanFlagged": true
-          }
+          },
+          "threatFamily": "Trojan.Dropper",
+          "isFatalVirus": true
         },
         {
           "id": "D3_S2",
@@ -408,7 +410,7 @@
     {
       "day": 5,
       "morningHeadline": "DAY 05: なりすまし部署の急増",
-      "morningMemo": "情シスや経理部を名乗る外部攻撃が活発化している。差出人の表示名だけでなく、ドメイン綴りと認証結果を必ず突合せよ。",
+      "morningMemo": "情シスや経理部を名乗る外部攻撃が急増した。田中からも『偽アカウントに注意を』と内線が入っている。差出人の表示名だけでなく、ドメイン綴りと認証を必ず照合せよ。",
       "targetPacketCount": 6,
       "newRules": [],
       "scriptedPackets": [
@@ -601,7 +603,7 @@
     {
       "day": 8,
       "morningHeadline": "DAY 08: C2サーバー通信の検疫",
-      "morningMemo": "攻撃者が社内PCへ遠隔操作パッチを送りつけている。規則R7を追加。脅威DBでC2認定された通信はQUARANTINEせよ。",
+      "morningMemo": "第1回監査は過ぎたが息を抜く暇はない。外部から遠隔操作パッチが送り込まれている。規則R7を追加。脅威DBでC2認定された通信はQUARANTINEせよ。",
       "targetPacketCount": 7,
       "newRules": [
         {
@@ -667,7 +669,9 @@
             "trafficFlagged": false,
             "deepScanResult": "バックドアDLLをZIP内に格納",
             "deepScanFlagged": true
-          }
+          },
+          "threatFamily": "APT-C2-ALPHA",
+          "isFatalVirus": true
         }
       ]
     },
@@ -995,7 +999,7 @@
     {
       "day": 14,
       "morningHeadline": "DAY 14: 最終日・総括システム監査",
-      "morningMemo": "ついに14日目の最終審査日。本日を乗り切れば運用評価が確定し、あなたの運命（6種の結末のいずれか）が決まる。",
+      "morningMemo": "14日間の初期稼働評価は今日で終わる。経営陣・内部監査室・AAN……それぞれの思惑が交錯する最終シフトを乗り切り、あなたの結末を見届けよ。",
       "targetPacketCount": 9,
       "newRules": [],
       "scriptedPackets": [
